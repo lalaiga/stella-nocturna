@@ -9,6 +9,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { makeTankerMesh, animateTanker } from './tanker_model.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -173,6 +174,7 @@ const SPEC = {
   // pattern = circuit time per leg (approach, turn, climb-out): a CL-415 cycle near a lake is ~5–6 min
   bomber: { name:'Canadair CL-415', count:2, air:true, speed:75, scoop:14, pattern:130, cap:6000, icon:'bomber' },
   heli:   { name:'Helicopter',   count:2, air:true, speed:45, scoop:35, pattern:45, cap:1200, icon:'heli' },
+  drone:  { name:'Recon drone',  count:2, air:true, recon:true, speed:16, icon:'drone' },
 };
 // one suppression tick for a ground unit working at (x, z); returns cells knocked down
 function groundWork(w, u, dt){
@@ -420,13 +422,17 @@ function unitMesh(type){
   if (type === 'engine'){ add(new THREE.BoxGeometry(3, 3, 8), M_(0xb3231c), 0, 2.2, 0); add(new THREE.BoxGeometry(2.8, 0.6, 2), M_(0xeeeeee), 0, 3.9, -1); }
   else if (type === 'crew'){ add(new THREE.BoxGeometry(2.6, 2.4, 5), M_(0xd9a521), 0, 1.8, 0); for (let q = 0; q < 4; q++) add(new THREE.CapsuleGeometry(0.35, 1.1, 3, 6), M_(0xd6c040), -2 + q * 1.3, 1, 4.5); }
   else if (type === 'dozer'){ add(new THREE.BoxGeometry(3.4, 2.6, 5), M_(0xe0b020), 0, 1.9, 0); add(new THREE.BoxGeometry(4.6, 1.6, 0.5), M_(0x555555, 0.4, 0.8), 0, 1.0, 3.2); add(new THREE.BoxGeometry(3.8, 0.9, 5.4), M_(0x222222), 0, 0.5, 0); }
-  else if (type === 'bomber'){ // Canadair-style amphibious bomber, yellow and red, scaled up for legibility
-    add(new THREE.CylinderGeometry(1.4, 1.1, 20, 12).rotateX(Math.PI / 2), M_(0xe8c21e, 0.45), 0, 0, 0);
-    add(new THREE.BoxGeometry(29, 0.5, 3.4), M_(0xe8c21e, 0.45), 0, 1.6, 0.5);
-    add(new THREE.BoxGeometry(9, 0.4, 2.2), M_(0xc5281c, 0.45), 0, 4.2, -9);
-    add(new THREE.BoxGeometry(0.4, 4.5, 2.6), M_(0xc5281c, 0.45), 0, 2.3, -9);
-    for (const x of [-5, 5]) add(new THREE.CylinderGeometry(0.7, 0.7, 3.6, 10).rotateX(Math.PI / 2), M_(0xc5281c), x, 1.2, 2.5);
-    g.scale.setScalar(2.2);
+  else if (type === 'bomber'){ const t = makeTankerMesh(THREE, 2.2); g.add(t); g.userData.tanker = t;
+  } else if (type === 'drone'){
+    const m = M_(0x2a2f38, 0.4, 0.5);
+    add(new THREE.BoxGeometry(1.6, 0.5, 1.6), m, 0, 0, 0);
+    const rotors = [];
+    for (const [x, z] of [[1.4, 1.4], [-1.4, 1.4], [1.4, -1.4], [-1.4, -1.4]]){
+      add(new THREE.BoxGeometry(0.2, 0.15, 2.1), m, x / 2, 0, z / 2, Math.atan2(x, z));
+      const r = add(new THREE.CylinderGeometry(0.85, 0.85, 0.05, 16), new THREE.MeshBasicMaterial({ color:0x55606e, transparent:true, opacity:0.5 }), x, 0.35, z); rotors.push(r);
+    }
+    add(new THREE.SphereGeometry(0.25, 10, 8), new THREE.MeshBasicMaterial({ color:0xe0501a }), 0, -0.35, 0.8);
+    g.userData.rotors = rotors; g.scale.setScalar(3);
   } else if (type === 'heli'){
     add(new THREE.SphereGeometry(2.2, 14, 10).scale(1, 0.9, 1.6), M_(0xc5281c, 0.45), 0, 0, 0);
     add(new THREE.CylinderGeometry(0.3, 0.5, 8, 8).rotateX(Math.PI / 2), M_(0xc5281c), 0, 0.4, -5.5);
@@ -465,8 +471,9 @@ function dispatch(type, tx, tz, tx2, tz2){
   if (pools[type] <= 0) return say(`No ${SPEC[type].name.toLowerCase()} available.`);
   pools[type]--;
   const sp = SPEC[type];
-  const u = { id:`${{ crew:'C', engine:'E', dozer:'B', bomber:'CL', heli:'H' }[type]}${unitSeq++}`, type, x:0, z:0, y:0, tx, tz, tx2, tz2, state:'transit', heading:0, water:0, drops:0, acc:0, did:0 };
-  if (sp.air){ u.x = AIRBASE.x; u.z = AIRBASE.z; u.y = 160; u.state = 'toLake'; const k = headNear(W, tx, tz); if (k >= 0){ u.tx = cx(k % N); u.tz = cx((k / N) | 0); } }
+  const u = { id:`${{ crew:'C', engine:'E', dozer:'B', bomber:'CL', heli:'H', drone:'D' }[type]}${unitSeq++}`, type, x:0, z:0, y:0, tx, tz, tx2, tz2, state:'transit', heading:0, water:0, drops:0, acc:0, did:0 };
+  if (sp.recon){ u.x = cx(STATION.i); u.z = cx(STATION.j); u.y = hAt(u.x, u.z) + 2; u.state = 'toFire'; u.orbitA = 0; }
+  else if (sp.air){ u.x = AIRBASE.x; u.z = AIRBASE.z; u.y = 160; u.state = 'toLake'; const k = headNear(W, tx, tz); if (k >= 0){ u.tx = cx(k % N); u.tz = cx((k / N) | 0); } }
   else { u.x = cx(STATION.i); u.z = cx(STATION.j); u.path = routeGround(u, tx, tz) || [{ x:tx, z:tz }]; }
   u.mesh = unitMesh(type); scene.add(u.mesh);
   const el = document.createElement('div'); el.className = 'ulabel2'; el.textContent = u.id; el.addEventListener('pointerdown', e => { e.stopPropagation(); selectUnit(u); });
@@ -576,23 +583,108 @@ function flyTo(u, x, z, y, dt){
 }
 function updateAir(u, dt){
   const sp = SPEC[u.type], lake = LAKEPT();
+  if (sp.recon){
+    if (u.state === 'return'){ if (flyTo(u, cx(STATION.i), cx(STATION.j), hAt(u.x, u.z) + 2, dt)){ removeUnit(u); pools[u.type]++; log(`${u.id} landed`); } return; }
+    const k = headNear(W, u.tx, u.tz, 300); if (k >= 0 && rand() < dt * 0.05){ u.tx = cx(k % N); u.tz = cx((k / N) | 0); }
+    if (u.state === 'toFire'){ if (flyTo(u, u.tx + 80, u.tz, hAt(u.tx, u.tz) + 60, dt)) u.state = 'orbit'; return; }
+    u.orbitA += dt * sp.speed / 80;
+    flyTo(u, u.tx + Math.cos(u.orbitA) * 80, u.tz + Math.sin(u.orbitA) * 80, hAt(u.tx, u.tz) + 60, dt);
+    return;
+  }
   if (u.state === 'pattern'){ u.t0 += dt; const a = u.t0 / sp.pattern * Math.PI * 2;      // fly the circuit around the current point
     flyTo(u, u.px + Math.cos(a) * 260, u.pz + Math.sin(a) * 260, 90, dt); if (u.t0 >= sp.pattern) u.state = u.water ? 'toFire' : 'toLake'; }
   else if (u.state === 'toLake'){ if (flyTo(u, lake.x, lake.z, 6, dt)){ u.state = 'scoop'; u.t0 = 0; } }
   else if (u.state === 'scoop'){ u.t0 += dt; u.y = lerp(u.y, 3, 0.2); if (u.t0 >= sp.scoop){ u.water = sp.cap; u.state = 'pattern'; u.t0 = 0; u.px = u.x; u.pz = u.z; } }
   else if (u.state === 'toFire'){
     // approach along the wind so the drop line lies on the flank of the head fire
+    // pre-drop safety: ~20 s out, move ground teams out of the drop footprint
+    const dist = Math.hypot(u.tx - u.x, u.tz - u.z);
+    u.eta = dist / sp.speed;
+    if (!u.warned && u.eta < 20){ u.warned = true; clearFootprint(u); }
     if (flyTo(u, u.tx, u.tz, u.type === 'bomber' ? 35 : 25, dt)){
       const hx = Math.sin(u.heading), hz = Math.cos(u.heading);
       if (u.type === 'bomber') dropStrip(W, u.tx, u.tz, hx, hz, 120, 25, 1800, 5000);
       else dropStrip(W, u.tx, u.tz, hx, hz, 30, 25, 900, 3000);
-      spawnDrop(u); u.water = 0; u.drops++; u.state = 'pattern'; u.t0 = 0; u.px = u.x; u.pz = u.z;
+      spawnDrop(u); spawnSteam(u.tx, u.tz, hx, hz, u.type === 'bomber' ? 120 : 30); u.water = 0; u.drops++; u.state = 'pattern'; u.t0 = 0; u.px = u.x; u.pz = u.z; u.warned = false;
+      if (!W.burning.length) alert(1, '<b>Visor quiet</b>Fire suppressed, sector cooling', 25);
       // next drop: the hottest part of the active edge near the assigned target
       const k = headNear(W, u.tx, u.tz); if (k >= 0){ u.tx = cx(k % N); u.tz = cx((k / N) | 0); }
     }
   } else if (u.state === 'return'){ if (flyTo(u, AIRBASE.x, AIRBASE.z, 160, dt)){ removeUnit(u); pools[u.type]++; log(`${u.id} landed at base`); } }
 }
-function removeUnit(u){ scene.remove(u.mesh, u.label, u.line); units.splice(units.indexOf(u), 1); if (selUnit === u) selectUnit(null); }
+/* firefighters on foot: articulated figures that leave the vehicle at the fire */
+const FFG = { torso:new THREE.BoxGeometry(0.5, 0.7, 0.3), head:new THREE.SphereGeometry(0.15, 10, 8), helmet:new THREE.SphereGeometry(0.18, 10, 6, 0, 6.29, 0, 1.6),
+  leg:new THREE.BoxGeometry(0.18, 0.9, 0.2), arm:new THREE.BoxGeometry(0.14, 0.65, 0.15), tank:new THREE.CylinderGeometry(0.12, 0.12, 0.55, 10), tool:new THREE.BoxGeometry(0.06, 0.06, 1.4) };
+const FFM = { coat:M_(0xc9a227, 0.7, 0.05), pants:M_(0x2b2f37, 0.8, 0.05), band:new THREE.MeshStandardMaterial({ color:0xd6e83a, emissive:0xd6e83a, emissiveIntensity:0.3 }),
+  helmet:M_(0xd23a1e, 0.5, 0.1), skin:M_(0x8d6a52, 0.8, 0), tank:M_(0xcfd3d8, 0.3, 0.8), tool:M_(0x5a3a22, 0.8, 0) };
+function makeFF(){
+  const g = new THREE.Group(), add = (geo, m, x, y, z, p = g) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = geo === FFG.torso; p.add(o); return o; };
+  add(FFG.torso, FFM.coat, 0, 1.3, 0); add(new THREE.BoxGeometry(0.51, 0.06, 0.31), FFM.band, 0, 1.12, 0);
+  add(FFG.head, FFM.skin, 0, 1.82, 0); add(FFG.helmet, FFM.helmet, 0, 1.86, 0); add(FFG.tank, FFM.tank, 0, 1.3, -0.22);
+  const limb = (geo, m, x, y, len) => { const pv = new THREE.Group(); pv.position.set(x, y, 0); g.add(pv); add(geo, m, 0, -len / 2, 0, pv); return pv; };
+  const legs = [-0.12, 0.12].map(x => limb(FFG.leg, FFM.pants, x, 0.95, 0.9));
+  const arms = [-0.32, 0.32].map(x => limb(FFG.arm, FFM.coat, x, 1.62, 0.65));
+  const tool = add(FFG.tool, FFM.tool, 0, -0.6, 0.6, arms[1]); tool.rotation.x = 0.4;
+  g.userData = { legs, arms, ph:rand() * 6 }; g.scale.setScalar(1.6); g.visible = false; scene.add(g);
+  return g;
+}
+function updateCrewFigures(u, dt, time){
+  const n = u.type === 'crew' ? 6 : u.type === 'engine' ? 3 : 0; if (!n) return;
+  if (!u.ffs){ u.ffs = Array.from({ length:n }, makeFF); u.ffPos = u.ffs.map(() => new THREE.Vector3(u.x, 0, u.z)); }
+  const onFoot = u.state === 'working';
+  const k = nearestBurning(W, u.x, u.z, 120), fx = k >= 0 ? cx(k % N) : u.x + Math.sin(u.heading) * 20, fz = k >= 0 ? cx((k / N) | 0) : u.z + Math.cos(u.heading) * 20;
+  const ang = Math.atan2(fx - u.x, fz - u.z);
+  u.ffs.forEach((f, i) => {
+    f.visible = onFoot;
+    if (!onFoot){ u.ffPos[i].set(u.x, 0, u.z); return; }
+    // spread along an arc between the vehicle and the fire edge, facing the flames
+    const spread = (i - (n - 1) / 2) * 0.35, d = 10 + (i % 2) * 4;
+    const tx = u.x + Math.sin(ang + spread) * d, tz = u.z + Math.cos(ang + spread) * d;
+    const p = u.ffPos[i], dx = tx - p.x, dz = tz - p.z, dist = Math.hypot(dx, dz), step = Math.min(dist, 2.2 * dt);
+    if (dist > 0.05){ p.x += dx / dist * step; p.z += dz / dist * step; }
+    f.position.set(p.x, hAt(p.x, p.z), p.z);
+    f.rotation.y = dist > 0.3 ? Math.atan2(dx, dz) : Math.atan2(fx - p.x, fz - p.z);
+    const ud = f.userData, walk = dist > 0.3 ? 1 : 0;
+    ud.ph += (walk ? 9 : 4) * dt;
+    ud.legs[0].rotation.x = Math.sin(ud.ph) * 0.6 * walk; ud.legs[1].rotation.x = -Math.sin(ud.ph) * 0.6 * walk;
+    ud.arms[0].rotation.x = walk ? -Math.sin(ud.ph) * 0.5 : -0.6;
+    ud.arms[1].rotation.x = walk ? Math.sin(ud.ph) * 0.5 : -0.9 + Math.sin(time * 6 + i) * 0.35;   // working the tool
+  });
+}
+function clearFootprint(u){
+  const hx = Math.sin(u.heading), hz = Math.cos(u.heading), L = u.type === 'bomber' ? 120 : 30, Wd = 25, M = 25;
+  const moved = [];
+  for (const g of units){
+    if (SPEC[g.type].air || g.state === 'return') continue;
+    const dx = g.x - u.tx, dz = g.z - u.tz, along = dx * hx + dz * hz, lat = -dx * hz + dz * hx;
+    if (Math.abs(along) > L / 2 + M || Math.abs(lat) > Wd / 2 + M) continue;
+    const side = lat >= 0 ? 1 : -1, ox = g.x + -hz * side * (Wd / 2 + M + 15 - Math.abs(lat)), oz = g.z + hx * side * (Wd / 2 + M + 15 - Math.abs(lat));
+    g.path = routeGround(g, ox, oz) || [{ x:ox, z:oz }]; g.state = 'transit'; g.tx = ox; g.tz = oz; moved.push(g.id);
+  }
+  alert(3, `<b>AERIAL DROP INBOUND</b>Clearing drop zone corridor · ${u.id}${moved.length ? ' · ' + moved.join(' ') + ' moving out' : ''}`, 10);
+  if (moved.length) log(`${moved.join(', ')} moved out of ${u.id}'s drop corridor`, 'l1');
+}
+// steam where water lands on burning or hot ground
+const MAXST = 900, stPos = new Float32Array(MAXST * 3), stVel = new Float32Array(MAXST * 3), stLife = new Float32Array(MAXST);
+const stGeo = new THREE.BufferGeometry(); stGeo.setAttribute('position', new THREE.BufferAttribute(stPos, 3).setUsage(THREE.DynamicDrawUsage));
+const steamPts = new THREE.Points(stGeo, new THREE.PointsMaterial({ color:0xf4f7fb, size:16, sizeAttenuation:true, transparent:true, opacity:0.45, depthWrite:false }));
+steamPts.frustumCulled = false; scene.add(steamPts); let stHead = 0;
+function spawnSteam(x, z, hx, hz, len){
+  for (let q = 0; q < 220; q++){
+    const s2 = (rand() - 0.5) * len, px = x + hx * s2 + (rand() - 0.5) * 20, pz = z + hz * s2 + (rand() - 0.5) * 20, k = cellAt(px, pz);
+    if (k < 0 || !(W.state[k] === 1 || W.state[k] === 3 || (W.state[k] === 2 && W.t - W.outT[k] < 900))) continue;
+    const i = stHead; stHead = (stHead + 1) % MAXST;
+    stPos[i * 3] = px; stPos[i * 3 + 1] = height[k] + 1; stPos[i * 3 + 2] = pz;
+    stVel[i * 3] = (rand() - 0.5) * 2; stVel[i * 3 + 1] = 4 + rand() * 4; stVel[i * 3 + 2] = (rand() - 0.5) * 2; stLife[i] = 5 + rand() * 4;
+  }
+}
+function updateSteam(dt){
+  const wv = windVec();
+  for (let i = 0; i < MAXST; i++){ if (stLife[i] <= 0){ stPos[i * 3 + 1] = -999; continue; } stLife[i] -= dt;
+    stPos[i * 3] += (stVel[i * 3] + wv.x * env.windSpeed * 0.4) * dt; stPos[i * 3 + 1] += stVel[i * 3 + 1] * dt; stPos[i * 3 + 2] += (stVel[i * 3 + 2] + wv.z * env.windSpeed * 0.4) * dt; stVel[i * 3 + 1] *= 1 - 0.3 * dt; }
+  stGeo.attributes.position.needsUpdate = true;
+}
+function removeUnit(u){ (u.ffs || []).forEach(f => scene.remove(f)); scene.remove(u.mesh, u.label, u.line); units.splice(units.indexOf(u), 1); if (selUnit === u) selectUnit(null); }
 
 // water drop curtain
 const MAXD = 1500, dPos = new Float32Array(MAXD * 3), dVel = new Float32Array(MAXD * 3), dLife = new Float32Array(MAXD);
@@ -627,7 +719,7 @@ function forecastRun(extra, horizon, dt){
   const w = cloneWorld(W), t0 = w.t;
   const crews = units.filter(u => !SPEC[u.type].air && u.type !== 'dozer' && u.state !== 'return').map(u => ({ type:u.type, x:u.state === 'working' ? u.x : u.tx, z:u.state === 'working' ? u.z : u.tz, acc:0, arrive:u.state === 'working' ? 0 : (u.eta || 300) }));
   const lake = LAKEPT();
-  const air = units.filter(u => SPEC[u.type].air && u.state !== 'return').map(u => ({ type:u.type, tx:u.tx, tz:u.tz, next:0 }));
+  const air = units.filter(u => SPEC[u.type].air && !SPEC[u.type].recon && u.state !== 'return').map(u => ({ type:u.type, tx:u.tx, tz:u.tz, next:0 }));
   if (extra){ const p = sources[0] || { x:0, z:0 }; for (const e of extra) air.push({ type:e, tx:p.x, tz:p.z, next:Math.hypot(lake.x - AIRBASE.x, lake.z - AIRBASE.z) / SPEC[e].speed }); }
   for (const a of air){ const sp = SPEC[a.type]; a.cycle = 2 * Math.hypot(a.tx - lake.x, a.tz - lake.z) / sp.speed + sp.scoop + 2 * sp.pattern; }
   const series = []; let contained = null, out = null, village = null;
@@ -656,6 +748,7 @@ function forecastRun(extra, horizon, dt){
 /* ================================================================
    UI
    ================================================================ */
+let autoTanker = false;
 let paused = false, speed = 60, tool = null, selUnit = null, vis = { lvl:0, html:'<b>Visor quiet</b>no active fire', until:0 }, nowT = 0, evac = { on:false, done:0 };
 const history = [];
 function log(text, cls = ''){ const L = $('ulog'); history.push({ t:W.t, text, cls }); }
@@ -746,7 +839,7 @@ function renderPrecautions(){
   const villageSoon = FC && FC.village !== null && FC.village < 2 * 3600;
   el.innerHTML = [
     '<div class="dim" style="grid-template-columns:1fr">// LACES</div>',
-    row(air.length ? 'ok' : W.burning.length ? 'warn' : 'ok', 'Lookouts', air.length ? `${air.length} aircraft observing` : 'no aerial lookout'),
+    row(air.length ? 'ok' : W.burning.length ? 'warn' : 'ok', 'Lookouts', air.length ? `${air.filter(u => SPEC[u.type].recon).length} drones, ${air.filter(u => !SPEC[u.type].recon).length} aircraft observing` : 'no aerial lookout'),
     row(noAnchor.length ? 'warn' : 'ok', 'Anchor points', noAnchor.length ? `${noAnchor.map(u => u.id).join(' ')} not anchored` : crews.length ? 'all crews anchored' : 'no crews'),
     row('ok', 'Communications', 'radio + Visor link'),
     row(noEscape.length ? 'bad' : 'ok', 'Escape routes (150 m)', noEscape.length ? `${noEscape.map(u => u.id).join(' ')} cut off` : crews.length ? 'all crews' : 'no crews'),
@@ -764,12 +857,13 @@ function renderPools(){
   $('pools').innerHTML = Object.entries(SPEC).map(([k, s]) => `<div class="pool"><span class="n">${s.name}</span><span class="c">${pools[k]}/${s.count}</span>
     <button class="txt ${tool === 'd:' + k ? 'hot' : ''}" data-act="tool" data-v="d:${k}" ${pools[k] ? '' : 'disabled'}>dispatch</button></div>`).join('');
 }
-const STATE_TXT = { pattern:'flying the circuit', transit:'en route', working:'attacking the fire', line:'cutting firebreak', idle:'line done, standing by', retreat:'withdrawing (too intense)', return:'returning', toLake:'flying to the lake', scoop:'scooping water', toFire:'flying to the fire' };
+const STATE_TXT = { orbit:'watching the fire (thermal camera)', pattern:'flying the circuit', transit:'en route', working:'attacking the fire', line:'cutting firebreak', idle:'line done, standing by', retreat:'withdrawing (too intense)', return:'returning', toLake:'flying to the lake', scoop:'scooping water', toFire:'flying to the fire' };
 function renderUnits(force){
   $('units').innerHTML = units.length ? units.map(u => {
     const cls = u.state === 'retreat' || (u.level || 0) >= 2 ? 'r' : u.state === 'working' || u.state === 'line' || u.state === 'toFire' ? 'w' : 't';
     const tele = !SPEC[u.type].air && u.sens ? ` · ${Math.round(u.sens.T)}°C ${u.sens.q.toFixed(1)} kW/m²` : '';
-    const extra = (SPEC[u.type].air ? ` · ${u.drops} drops` : u.state === 'working' ? ` · ${u.did} cells out` : u.state === 'transit' && u.path ? ` · ${Math.round(u.path.length * CS)} m` : '') + tele;
+    const air = SPEC[u.type].air && !SPEC[u.type].recon ? ` · ${Math.round(u.y)} m · ${Math.round(SPEC[u.type].speed * 3.6)} km/h · water ${Math.round((u.water || 0) / SPEC[u.type].cap * 100)} %${u.state === 'toFire' && u.eta != null ? ` · drop in ${Math.ceil(u.eta)} s` : ''}` : '';
+    const extra = air + (SPEC[u.type].recon ? '' : SPEC[u.type].air ? ` · ${u.drops} drops` : u.state === 'working' ? ` · ${u.did} cells out` : u.state === 'transit' && u.path ? ` · ${Math.round(u.path.length * CS)} m` : '') + tele;
     return `<div class="unit ${selUnit === u ? 'sel' : ''}" data-act="unit" data-id="${u.id}"><i class="d ${cls}"></i><span><b>${u.id}</b> ${SPEC[u.type].name}</span><button class="txt" data-act="recall" data-id="${u.id}">recall</button><span class="st">${STATE_TXT[u.state] || u.state}${extra}</span></div>`;
   }).join('') : '<div class="dim">nothing deployed</div>';
   const c = $('ucard');
@@ -786,7 +880,7 @@ function renderUnits(force){
 }
 function renderVisor(){
   if (nowT > vis.until && vis.lvl){ vis = { lvl:0, html:W.burning.length ? `<b>Visor watching</b>${units.length} unit${units.length === 1 ? '' : 's'} deployed` : '<b>Visor quiet</b>no active fire', until:0 }; }
-  if (!vis.lvl) vis.html = W.burning.length ? `<b>Visor watching</b>${units.length} unit${units.length === 1 ? '' : 's'} deployed · wind ${env.windSpeed} m/s from ${compass(env.windFrom)}` : '<b>Visor quiet</b>no active fire';
+  if (!vis.lvl) vis.html = !W.burning.length && units.length ? '<b>Visor quiet</b>Fire suppressed, sector cooling' : W.burning.length ? `<b>Visor watching</b>${units.length} unit${units.length === 1 ? '' : 's'} deployed · wind ${env.windSpeed} m/s from ${compass(env.windFrom)}` : '<b>Visor quiet</b>no active fire';
   $('visor').className = 'l' + vis.lvl; $('visorText').innerHTML = vis.html;
   $('vignette').classList.toggle('on', vis.lvl >= 2);
 }
@@ -848,11 +942,13 @@ document.addEventListener('pointerdown', e => {
   else if (a === 'retarget'){ tool = 'retarget'; setHint(`${selUnit.id}: click the new target · Esc cancels`); }
   else if (a === 'evacuate'){ if (!evac.on){ evac.on = true; log('Village evacuation ordered', 'l1'); say('Village evacuation ordered. Three hundred forty residents.'); } }
   else if (a === 'reset') location.reload();
+  else if (a === 'tanker'){ const s0 = sources[0]; if (s0) dispatch('bomber', s0.x, s0.z); else say('No active fire.'); }
   else if (a === 'visor'){}
   document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', +b.dataset.v === speed));
   $('playLbl').textContent = paused ? 'play' : 'pause';
   renderUnits(true);
 });
+$('autoTanker') && $('autoTanker').addEventListener('change', e => { autoTanker = e.target.checked; });
 const wxBind = (id, key, fmt) => { const el = $(id); const f = () => { env[key] = +el.value; $(id + 'V').textContent = fmt(env[key]); flameMat.uniforms.uWind.value.set(windVec().x * env.windSpeed / 6, windVec().z * env.windSpeed / 6); }; el.addEventListener('input', () => { f(); FC = null; runForecast(); }); f(); };
 wxBind('wDir', 'windFrom', v => compass(v)); wxBind('wSpd', 'windSpeed', v => `${v} m/s`); wxBind('moist', 'moist', v => `${v} %`);
 
@@ -888,7 +984,7 @@ function frame(){
   if (W.changed.size){ for (const k of W.changed){ paintCell(k); paintTrees(k); if (W.state[k] === 2) cooling.add(k); } W.changed.clear(); colorTex.needsUpdate = glowTex.needsUpdate = true; }
   // burnt ground smoulders, then cools to black
   coolAcc += dt; if (coolAcc > 0.4 && cooling.size){ coolAcc = 0; for (const k of cooling){ paintCell(k); if (W.t - W.outT[k] > 900) cooling.delete(k); } glowTex.needsUpdate = colorTex.needsUpdate = true; }
-  rebuildFlames(); computeSources(); updateSmoke(dt * Math.min(speed, 20) / 4); updateDrops(dt);
+  rebuildFlames(); computeSources(); updateSmoke(dt * Math.min(speed, 20) / 4); updateDrops(dt); updateSteam(dt);
   // fire lights on the three biggest fire blocks
   fireLights.forEach((L, i) => { const s = sources[i]; if (s){ L.position.set(s.x, s.y + 25, s.z); L.intensity = (2500 + Math.min(s.w, 150) * 110) * (0.85 + 0.15 * Math.sin(nowT * 11 + i * 2) + 0.1 * Math.sin(nowT * 23 + i)); } else L.intensity = 0; });
   // units
@@ -897,6 +993,11 @@ function frame(){
     if (SPEC[u.type].air) u.mesh.position.y = Math.max(u.y, hAt(u.x, u.z) + 3);
     u.mesh.rotation.y = u.heading;
     if (u.mesh.userData.rotor) u.mesh.userData.rotor.rotation.y += dt * 30;
+    if (u.mesh.userData.tanker){ let dh = u.heading - (u.prevH ?? u.heading); dh = Math.atan2(Math.sin(dh), Math.cos(dh)); u.prevH = u.heading;
+      u.roll = (u.roll || 0) + (Math.max(-0.7, Math.min(0.7, -dh * 25)) - (u.roll || 0)) * Math.min(1, dt * 3);
+      animateTanker(u.mesh.userData.tanker, nowT, { roll:u.roll, doorsOpen:u.state === 'toFire' && (u.eta || 99) < 2 }); }
+    if (u.mesh.userData.rotors) for (const r of u.mesh.userData.rotors) r.rotation.y += dt * 40;
+    updateCrewFigures(u, dt * Math.min(speed, 20), nowT);
     u.label.position.set(u.x, u.mesh.position.y + (SPEC[u.type].air ? 14 : 9), u.z);
     const tgt = u.state === 'return' ? null : { x:u.tx, z:u.tz };
     if (tgt && (u === selUnit || u.state === 'transit')){ u.line.visible = true; u.line.geometry.setFromPoints([new THREE.Vector3(u.x, u.mesh.position.y + 2, u.z), new THREE.Vector3(tgt.x, hAt(tgt.x, tgt.z) + 2, tgt.z)]); u.line.computeLineDistances(); }
@@ -906,10 +1007,13 @@ function frame(){
   uiAcc += dt; fcAcc += dt;
   if (uiAcc > 0.3){ uiAcc = 0; $('clock').textContent = clock(W.t); renderFire(); renderForecast(); renderUnits(); renderPools(); renderVisor(); renderPrecautions(); drawChart(); }
   if (fcAcc > 6 && !paused){ fcAcc = 0; runForecast(); }
+  // auto-dispatch a water bomber when the fire becomes intense and none is flying
+  if (autoTanker && !paused && pools.bomber > 0 && !units.some(u => u.type === 'bomber') && W.burning.some(k => W.inten[k] > 2500)){
+    const s0 = sources[0]; if (s0){ dispatch('bomber', s0.x, s0.z); alert(1, '<b>Auto-dispatch</b>water bomber launched: intensity above 2.5 MW/m', 10); } }
   controls.update(); composer.render(); labelR.render(scene, camera);
   requestAnimationFrame(frame);
 }
 document.fonts.ready.then(() => setTimeout(() => $('loader').classList.add('done'), 600));
 runForecast();
 requestAnimationFrame(frame);
-window.__forest = { W, env, units, pools, forecast, stats, dispatch, setSpeed:v => { speed = v; }, getFC:() => FC, cx, scene, trees, smoke, flames, terrain, moon, fireLights, renderer, bloom };
+window.__forest = { camera, controls, W, env, units, pools, forecast, stats, dispatch, setSpeed:v => { speed = v; }, getFC:() => FC, cx, scene, trees, smoke, flames, terrain, moon, fireLights, renderer, bloom };

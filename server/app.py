@@ -157,6 +157,7 @@ Rules:
     commit_plan {target: W1|A1}          execute the selected plan
     enter {target: W1|A1} / exit {}      zoom the view inside / back outside
     status {unit}                        just answer, no state change
+    air_tanker {}                        dispatch the water bomber for an aerial drop
     wind {value: "SE 6"}  speed {value: "1"|"5"|"20"}  pause {}  resume {}
 """
 
