@@ -21,7 +21,7 @@ const htmlOf = i => SLIDES[i].html.replaceAll('{n}', String(i + 1).padStart(2, '
 /* ---------------- slides ---------------- */
 const SLIDES = [
   { cam:[-74, 34, 58], at:[2, 5, -26], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// {n} — A chemical plant in Gabès, 2:14 am</div>
+    <div class="pos-tl"><div class="k">// {n} — A chemical plant in Gabès, 2:14 pm</div>
       <h1>Two workers<br>are inside.</h1>
       <p class="lead">Where are they?<br><span class="dim">Can we get them out alive?</span></p></div>
     <div class="pos-br"><div class="mark">A3TN</div><div class="k">// Tunisian Aeroday · ${T(M.team)}</div></div>` },

@@ -23,9 +23,9 @@ function noiseCanvas(size, base, spread, cracks){
 }
 {
   const concrete = noiseCanvas(256, 128, 46, 10); concrete.repeat.set(14, 14);
-  pad.material.map = concrete; pad.material.color.setHex(0x3a3f48); pad.material.roughnessMap = concrete; pad.material.needsUpdate = true;
+  pad.material.map = concrete; pad.material.color.setHex(0xc9ccd0); pad.material.roughnessMap = concrete; pad.material.needsUpdate = true;
   const dirt = noiseCanvas(256, 110, 60, 0); dirt.repeat.set(60, 60);
-  ground.material.map = dirt; ground.material.color.setHex(0x1b2027); ground.material.needsUpdate = true;
+  ground.material.map = dirt; ground.material.color.setHex(0x9ea58f); ground.material.needsUpdate = true;
 }
 
 /* ---------------- sodium floodlights on poles ---------------- */
@@ -34,7 +34,7 @@ const lampMat = new THREE.MeshBasicMaterial({ color:0xffd9a0 });
 for (const [x, z, tx, tz] of [[-78, 8, -66, 24], [-40, 64, -58, 56], [74, -36, 50, -52], [64, 58, 46, 44], [-2, 12, 10, -10]]){
   const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 14, 8), poleMat); pole.position.set(x, 7, z); pole.castShadow = true; scene.add(pole);
   const head = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.3, 0.7), lampMat); head.position.set(x, 14, z); scene.add(head);
-  const L = new THREE.SpotLight(0xffc27a, 420, 80, 0.62, 0.65, 1.6);
+  const L = new THREE.SpotLight(0xffc27a, 60, 80, 0.62, 0.65, 1.6);
   L.position.set(x, 13.8, z); L.target.position.set(tx, 0, tz); scene.add(L, L.target);
 }
 

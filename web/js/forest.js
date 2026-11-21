@@ -32,9 +32,9 @@ const cellAt = (x, z) => { const i = Math.floor((x + HALF) / CS), j = Math.floor
 const F = { NONE:0, GRASS:1, SHRUB:2, FOREST:3, ROCK:4, WATER:5, ROAD:6, VILLAGE:7 };
 const FUEL = [
   { name:'cleared',  ros:0,   load:0,   dur:0,    burn:false, col:[0.30, 0.22, 0.14] },
-  { name:'grass',    ros:5,   load:0.4, dur:90,   burn:true,  col:[0.44, 0.45, 0.22] },
-  { name:'shrubland',ros:2.2, load:1.6, dur:420,  burn:true,  col:[0.28, 0.32, 0.16] },
-  { name:'forest',   ros:0.9, load:3.5, dur:1500, burn:true,  col:[0.13, 0.20, 0.11] },
+  { name:'grass',    ros:5,   load:0.4, dur:90,   burn:true,  col:[0.66, 0.68, 0.36] },
+  { name:'shrubland',ros:2.2, load:1.6, dur:420,  burn:true,  col:[0.46, 0.52, 0.28] },
+  { name:'forest',   ros:0.9, load:3.5, dur:1500, burn:true,  col:[0.28, 0.38, 0.22] },
   { name:'rock',     ros:0,   load:0,   dur:0,    burn:false, col:[0.38, 0.36, 0.34] },
   { name:'water',    ros:0,   load:0,   dur:0,    burn:false, col:[0.08, 0.14, 0.20] },
   { name:'road',     ros:0,   load:0,   dur:0,    burn:false, col:[0.24, 0.23, 0.22] },
@@ -219,20 +219,20 @@ renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadow
 stage.appendChild(renderer.domElement);
 const labelR = new CSS2DRenderer(); labelR.domElement.className = 'labels'; stage.appendChild(labelR.domElement);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0b0e14);
-scene.fog = new THREE.FogExp2(0x10131a, 0.00055);
+scene.background = new THREE.Color(0xdfe6ee);
+scene.fog = new THREE.FogExp2(0xdfe6ee, 0.00038);
 const camera = new THREE.PerspectiveCamera(42, 1, 1, 8000);
 camera.position.set(-520, 520, 820);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(60, 0, -20); controls.enableDamping = true; controls.maxPolarAngle = 1.42; controls.minDistance = 60; controls.maxDistance = 2600;
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.55, 0.45, 0.92); composer.addPass(bloom);
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.25, 0.4, 1.2); composer.addPass(bloom);
 composer.addPass(new OutputPass());
 const uTime = { value:0 }, uScale = { value:800 };
 
-scene.add(new THREE.HemisphereLight(0x55688a, 0x0b0c10, 0.85));
-const moon = new THREE.DirectionalLight(0x9fb4dc, 0.55); moon.position.set(-600, 900, 500);
+scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x6f6a55, 1.5));
+const moon = new THREE.DirectionalLight(0xfff3e0, 2.6);   // sun moon.position.set(-600, 900, 500);
 moon.castShadow = true; moon.shadow.mapSize.set(2048, 2048);
 Object.assign(moon.shadow.camera, { left:-800, right:800, top:800, bottom:-800, near:100, far:2600 }); moon.shadow.bias = -0.0008;
 scene.add(moon);
@@ -284,7 +284,7 @@ treeCells.forEach((code, n) => {
   const x = cx(i) + (hash(n, 1) - 0.5) * 8, z = cx(j) + (hash(n, 2) - 0.5) * 8, sc = shrub ? 0.35 + hash(n, 4) * 0.2 : 0.8 + hash(n, 5) * 0.6;
   m4.compose(p4.set(x, height[k] - 0.5, z), q4.setFromAxisAngle(s4.set(0, 1, 0), hash(n, 6) * 6.28), s4.set(sc, sc * (shrub ? 0.6 : 1), sc));
   trees.setMatrixAt(n, m4);
-  trees.setColorAt(n, trunkCol.setHSL(0.26 + hash(n, 7) * 0.06, 0.35, shrub ? 0.16 : 0.10 + hash(n, 8) * 0.05));
+  trees.setColorAt(n, trunkCol.setHSL(0.26 + hash(n, 7) * 0.06, 0.35, shrub ? 0.30 : 0.22 + hash(n, 8) * 0.08));
   if (!cellTrees.has(k)) cellTrees.set(k, []); cellTrees.get(k).push(n);
 });
 trees.castShadow = true; trees.receiveShadow = true; scene.add(trees);

@@ -15,8 +15,8 @@
 </script>
 <style>
 :root{
-  --bg:#0a0d13; --ink:#d8dce2; --mute:#8a929e; --dim:#545c68; --line:rgba(216,220,226,.16);
-  --hot:#ff6a2b; --ok:#9fd8c0; --warn:#e8b04a; --bad:#ff4d3d;
+  --bg:#eef1f4; --ink:#14181e; --mute:#4c5562; --dim:#7d8693; --line:rgba(20,24,30,.16);
+  --hot:#e0501a; --ok:#178a63; --warn:#b8770e; --bad:#d4301f;
   --mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
 }
 *{box-sizing:border-box}
@@ -26,8 +26,8 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family
 #stage canvas{display:block}
 .labels{display:none}
 #shade{position:fixed;inset:0;pointer-events:none;
-  background:radial-gradient(120% 95% at 55% 45%, transparent 40%, rgba(6,8,12,.6) 78%, rgba(6,8,12,.9) 100%),
-             linear-gradient(90deg, rgba(6,8,12,.78), rgba(6,8,12,.25) 38%, transparent 60%)}
+  background:radial-gradient(120% 95% at 55% 45%, transparent 40%, rgba(238,241,245,.6) 78%, rgba(238,241,245,.9) 100%),
+             linear-gradient(90deg, rgba(238,241,245,.78), rgba(238,241,245,.25) 38%, transparent 60%)}
 /* 1920×1080 design frame, scaled to the window */
 #frame{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
 .slide{position:absolute;inset:0;padding:84px 96px;font-size:20px;line-height:1.5}
@@ -64,7 +64,7 @@ table.std td:first-child{color:var(--mute);padding-right:40px;white-space:nowrap
 .persona .t{font-size:22px;color:var(--mute)}
 .persona .n{font-size:40px;font-weight:700;letter-spacing:-.03em}
 .bmc{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(2,250px) 150px;gap:1px;background:var(--line);border:1px solid var(--line);width:1728px}
-.bmc div{background:rgba(10,13,19,.88);padding:16px 18px;font-size:18px}
+.bmc div{background:rgba(255,255,255,.9);padding:16px 18px;font-size:18px}
 .bmc div b{display:block;color:var(--mute);font-weight:500;font-size:15px;margin-bottom:8px;text-transform:lowercase}
 .bmc .kp{grid-row:1/3} .bmc .vp{grid-row:1/3} .bmc .cs{grid-row:1/3}
 .bmc .cost{grid-column:1/3} .bmc .rev{grid-column:3/6}
@@ -83,12 +83,12 @@ table.std td:first-child{color:var(--mute);padding-right:40px;white-space:nowrap
 #print{display:none}
 @page{size:1920px 1080px;margin:0}
 @media print{
-  html,body{overflow:visible;height:auto;background:#000}
+  html,body{overflow:visible;height:auto;background:#eef1f4}
   #stage,#shade,#frame,#chrome,#bar,#loader{display:none!important}
   #print{display:block}
   .page{position:relative;width:1920px;height:1080px;overflow:hidden;page-break-after:always;break-after:page;background:var(--bg)}
   .page img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-  .page .pshade{position:absolute;inset:0;background:radial-gradient(120% 95% at 55% 45%, transparent 40%, rgba(6,8,12,.6) 78%, rgba(6,8,12,.9) 100%),linear-gradient(90deg, rgba(6,8,12,.78), rgba(6,8,12,.25) 38%, transparent 60%)}
+  .page .pshade{position:absolute;inset:0;background:radial-gradient(120% 95% at 55% 45%, transparent 40%, rgba(238,241,245,.6) 78%, rgba(238,241,245,.9) 100%),linear-gradient(90deg, rgba(238,241,245,.78), rgba(238,241,245,.25) 38%, transparent 60%)}
   .page .pfoot{position:absolute;left:96px;right:96px;bottom:40px;display:flex;justify-content:space-between;font-size:14px;color:var(--mute)}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }

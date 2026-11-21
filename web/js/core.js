@@ -75,8 +75,8 @@ labelRenderer.domElement.className = 'labels';
 stage.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0a0d13);
-scene.fog = new THREE.FogExp2(0x0d1118, 0.0058);   // misty night: depth through fog, fire is the only warm light
+scene.background = new THREE.Color(0xdfe6ee);
+scene.fog = new THREE.FogExp2(0xdfe6ee, 0.0032);   // misty night: depth through fog, fire is the only warm light
 
 const camera = new THREE.PerspectiveCamera(46, 1, 0.5, 1500);
 camera.position.set(-92, 78, 92);
@@ -87,7 +87,7 @@ controls.maxPolarAngle = 1.45; controls.minDistance = 18; controls.maxDistance =
 
 const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
-const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.5, 0.4, 0.95);
+const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.25, 0.4, 1.2);
 composer.addPass(bloom);
 composer.addPass(new OutputPass());
 
@@ -97,8 +97,8 @@ const uTime = { value: 0 };
 /* ================================================================
    Lights & environment
    ================================================================ */
-scene.add(new THREE.HemisphereLight(0x6d7f9e, 0x0a0c10, 0.75));
-const moon = new THREE.DirectionalLight(0x9db4e0, 0.42);
+scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x8a8172, 1.6));
+const moon = new THREE.DirectionalLight(0xfff3e0, 2.4);   // sun
 moon.position.set(-90, 140, 70);
 moon.castShadow = true;
 moon.shadow.mapSize.set(2048, 2048);
@@ -121,15 +121,15 @@ const lightPool = [0, 1, 2].map(i => {
 });
 
 // Ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshStandardMaterial({ color:0x10141b, roughness:1 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshStandardMaterial({ color:0x9aa08f, roughness:1 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-const pad = new THREE.Mesh(new THREE.PlaneGeometry(168, 168), new THREE.MeshStandardMaterial({ color:0x161a21, roughness:0.95 }));
+const pad = new THREE.Mesh(new THREE.PlaneGeometry(168, 168), new THREE.MeshStandardMaterial({ color:0xb4b8bc, roughness:0.95 }));
 pad.rotation.x = -Math.PI / 2; pad.position.y = 0.01; pad.receiveShadow = true; scene.add(pad);
 function flat(w, d, x, z, color, y = 0.025){
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ color, roughness:0.9 }));
   m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; scene.add(m); return m;
 }
-flat(168, 8, 0, 20, 0x20262f); flat(8, 168, -30, 0, 0x20262f); flat(60, 8, -110, 20, 0x161a20, 0.02); // roads + access road
+flat(168, 8, 0, 20, 0x5c6066); flat(8, 168, -30, 0, 0x5c6066); flat(60, 8, -110, 20, 0x161a20, 0.02); // roads + access road
 flat(14, 34, -70, 26, 0x1d2a2c); // staging pad
 flat(10, 10, -66, 66, 0x1d2a2c); // muster
 // Road markings
@@ -168,8 +168,8 @@ function label3D(text, x, y, z, cls = 'alabel'){
    ================================================================ */
 const ASSETS = [];
 function building(o){
-  const { x, z, w, d, h, color, lit = 0.25 } = o;
-  const side = (rx) => new THREE.MeshStandardMaterial({ color, roughness:0.85, metalness:0.05, emissive:0xffffff, emissiveMap:windowTex(rx, Math.max(1, Math.round(h / 12))), emissiveIntensity:lit });
+  const { x, z, w, d, h, color, lit = 0.25 } = o; const _lit = lit * 0.15;
+  const side = (rx) => new THREE.MeshStandardMaterial({ color, roughness:0.85, metalness:0.05, emissive:0xffffff, emissiveMap:windowTex(rx, Math.max(1, Math.round(h / 12))), emissiveIntensity:_lit });
   const plain = new THREE.MeshStandardMaterial({ color: new THREE.Color(color).multiplyScalar(0.8), roughness:0.9 });
   const mats = [side(Math.max(1, Math.round(d / 9))), side(Math.max(1, Math.round(d / 9))), plain, plain, side(Math.max(1, Math.round(w / 9))), side(Math.max(1, Math.round(w / 9)))];
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mats);
@@ -576,7 +576,7 @@ const overlayMat = new THREE.ShaderMaterial({
     void main(){
       vec2 g = (vW + 80.0) / 16.0; vec2 cell = floor(g);
       float lvl = texture2D(uRisk, (cell + 0.5) / 10.0).r * 255.0 / 85.0;
-      vec3 cS = vec3(0.55, 0.62, 0.72), cA = vec3(0.91, 0.69, 0.29), cW = vec3(1.0, 0.30, 0.24);
+      vec3 cS = vec3(0.25, 0.32, 0.42), cA = vec3(0.91, 0.69, 0.29), cW = vec3(1.0, 0.30, 0.24);
       vec3 col = lvl < 0.5 ? cS : (lvl < 1.5 ? cA : cW);
       float a = lvl < 0.5 ? 0.0 : (lvl < 1.5 ? 0.13 : (lvl < 2.5 ? 0.22 : 0.30 + 0.07 * sin(uTime * 4.0)));
       // the grid is hidden by default; clicking a cell reveals it, fading out around that cell
