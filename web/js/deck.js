@@ -9,22 +9,23 @@ import { toggleSound, updateSound } from './sound.js';
 
 /* ---------------- numbers shown on slides (update after training) ---------------- */
 const M = {
-  yoloMap50: '0.69',      // best mAP@0.5 so far on the 4,306-image held-out D-Fire split — update when training ends
+  yoloMap50: '0.74',      // final mAP@0.5 on the 4,306-image held-out D-Fire split (ml/models/yolo_metrics.txt)
   gnnT: '1.9 °C', gnnS: '0.007',
   team: 'team name', repo: 'github.com/‹account›/a3tn-command',
 };
 const T = s => `<span class="todo">${s}</span>`;   // things the team must fill in
+const htmlOf = i => SLIDES[i].html.replaceAll('{n}', String(i + 1).padStart(2, '0'));
 
 /* ---------------- slides ---------------- */
 const SLIDES = [
   { cam:[-74, 34, 58], at:[2, 5, -26], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// 01 — Gabès industrial zone, 02:14</div>
+    <div class="pos-tl"><div class="k">// {n} — Gabès industrial zone, 02:14</div>
       <h1>Two workers<br>are inside.</h1>
       <p class="lead">Where are they?<br><span class="dim">Can we reach them alive?</span></p></div>
     <div class="pos-br"><div class="mark">A3TN</div><div class="k">// Command · Tunisian Aeroday · ${T(M.team)}</div></div>` },
 
   { cam:[-36, 20, -4], at:[-8, 13, -36], drift:0.015, html:`
-    <div class="pos-tl"><div class="k">// 02 — The problem</div><h2>Industrial fires<br>are fought blind.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — The problem</div><h2>Industrial fires<br>are fought blind.</h2></div>
     <div class="pos-bl"><ul class="list">
       <li>Toxic plumes, explosion risk, chemical loads</li>
       <li>Large buildings with people still inside</li>
@@ -33,8 +34,24 @@ const SLIDES = [
       <li>Gloves and breathing apparatus: no hands for screens</li></ul></div>
     <div class="pos-br"><div class="k">${T('2 sourced figures: e.g. Gabès / GCT incidents, firefighter disorientation deaths')}</div></div>` },
 
+  { cam:[-62, 46, 30], at:[-10, 0, -20], drift:0.015, html:`
+    <div class="pos-tl"><div class="k">// {n} — Need study</div><h2>Target: entry decisions<br>at industrial sites.</h2>
+      <div class="k">// why: highest risk to crews and workers, highest density of people, sensors and plans already exist on site</div></div>
+    <div class="pos-bl" style="max-width:1730px"><div class="grid2">
+      <div><div class="k">// users concerned</div><ul class="list">
+        <li>Protection Civile rescue teams and incident commanders</li>
+        <li>Site operators and safety managers (HSE)</li>
+        <li>Public bodies: governorate, civil-defence regional units</li>
+        <li>Nearby residents, warned of the toxic plume</li></ul></div>
+      <div><div class="k">// today → with A3TN</div><table class="std">
+        <tr><td>Size-up from outside</td><td>drones map heat and people in minutes</td></tr>
+        <tr><td>Radio relays, paper plans</td><td>one shared 3D picture, by voice</td></tr>
+        <tr><td>Exposure judged by feel</td><td>live sensors, automatic withdraw</td></tr>
+        <tr><td>Enter and hope</td><td>forecast-checked GO / NO-GO entry plans</td></tr></table></div>
+    </div></div>` },
+
   { cam:[-98, 16, 44], at:[-70, 2, 22], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// 03 — Who we build for</div><h2>Two people,<br>one decision.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — Users & empathy map</div><h2>Two people,<br>one decision.</h2></div>
     <div class="pos-bl" style="max-width:1500px"><div class="grid2">
       <div class="persona"><div class="t">// the incident commander</div><div class="n">Decides who goes in.</div>
         <div class="quote">${T('quote from the Protection Civile interview')}</div>
@@ -42,10 +59,11 @@ const SLIDES = [
       <div class="persona"><div class="t">// the entry firefighter</div><div class="n">Can’t see. Can’t type.</div>
         <div class="quote">${T('quote from the Protection Civile interview')}</div>
         <div class="dim">Needs to know where people are, and when to get out.</div></div>
-    </div></div>` },
+    </div>
+    <div class="k" style="margin-top:28px">// how we reach them: live demos at Protection Civile units · free training scenarios on the simulator · one pilot with a site operator · ${T('your channel')}</div></div>` },
 
   { cam:[6, 150, 52], at:[0, 0, -12], drift:0.01, html:`
-    <div class="pos-tl"><div class="k">// 04 — A3TN Command</div><h2>A 3D twin of the site<br>that sees, forecasts<br>and talks.</h2>
+    <div class="pos-tl"><div class="k">// {n} — A3TN Command</div><h2>A 3D twin of the site<br>that sees, forecasts<br>and talks.</h2>
       <div class="k hot">// not another fire detector: we keep crews alive after detection</div></div>
     <div class="pos-bl" style="max-width:1700px"><div class="verbs">
       <div><b>Detect</b><span>drones + fire/smoke vision</span></div>
@@ -54,24 +72,24 @@ const SLIDES = [
       <div><b>Act</b><span>entry plans, voice, auto-withdraw</span></div></div></div>` },
 
   { cam:[34, 30, -58], at:[4, 6, -28], drift:0.05, html:`
-    <div class="pos-tl"><div class="k">// 05 — Demo</div><h1>Live.</h1>
+    <div class="pos-tl"><div class="k">// {n} — Demo</div><h1>Live.</h1>
       <p class="lead dim">detection → auto-withdraw → indoor scan<br>→ rescue plan → “Visor, commit plan A”</p></div>` },
 
   { cam:[-50, 33, -6], at:[-26, -2, -28], drift:0.02, inside:'W1', hideGround:true, html:`
-    <div class="pos-tl"><div class="k">// 06 — The AI</div><h2>Four models.<br>One laptop GPU.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — The AI</div><h2>Two models trained.<br>One laptop GPU.</h2></div>
     <div class="pos-bl" style="max-width:1730px"><div class="grid4">
-      <div class="cell"><div class="t">YOLO11n</div><div class="s">fire & smoke on drone video, fine-tuned on D-Fire (21,527 images)</div>
+      <div class="cell"><div class="t">YOLO11n · trained</div><div class="s">fire & smoke on drone video, fine-tuned on D-Fire (21,527 images)</div>
         <div class="m">mAP@.5 ${M.yoloMap50}<small>4,306 held-out images</small></div></div>
-      <div class="cell"><div class="t">Smoke GNN</div><div class="s">forecasts smoke and heat room to room, any floor plan</div>
+      <div class="cell"><div class="t">Smoke GNN · trained</div><div class="s">forecasts smoke and heat room to room, any floor plan</div>
         <div class="m">${M.gnnT}<small>error over 6 min, 200 unseen buildings</small></div></div>
-      <div class="cell"><div class="t">Sensor fusion</div><div class="s">Bayesian: crews, drones, detectors, vision</div>
+      <div class="cell"><div class="t">Bayesian fusion</div><div class="s">not trained: probabilistic layer combining crews, drones, detectors, YOLO</div>
         <div class="m">64 ± 3 °C<small>every number shows its sources</small></div></div>
-      <div class="cell"><div class="t">Voice</div><div class="s">Whisper → Gemini → Piper, push-to-talk</div>
+      <div class="cell"><div class="t">Voice</div><div class="s">pretrained, integrated: Whisper → Gemini → Piper</div>
         <div class="m">~3 s<small>order to spoken answer · refuses unsafe orders</small></div></div>
     </div><div class="k" style="margin-top:26px">// runs locally; only the language model needs internet, with an offline fallback</div></div>` },
 
   { cam:[18, 12, -4], at:[6, 3, -24], drift:0.02, withdraw:true, html:`
-    <div class="pos-tl"><div class="k">// 07 — Realism & safety</div><h2>Physics, standards,<br>hard safety locks.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — Realism & safety</div><h2>Physics, standards,<br>hard safety locks.</h2></div>
     <div class="pos-bl"><table class="std">
       <tr><td>Fire growth</td><td>t² “fast” curve · NFPA 72 / SFPE</td></tr>
       <tr><td>Flames & plume</td><td>Heskestad · McCaffrey · Gaussian dispersion</td></tr>
@@ -85,18 +103,22 @@ const SLIDES = [
       <li>The AI cannot send a crew into danger</li></ul></div>` },
 
   { cam:[78, 30, -18], at:[46, 6, -56], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// 08 — Technical feasibility</div><h2>Built on what sites<br>already have.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — Technical feasibility</div><h2>Built on what sites<br>already have.</h2></div>
     <div class="pos-bl" style="max-width:1700px"><div class="grid2">
       <div><div class="k">// resources</div><ul class="list">
         <li>1 thermal drone + 1 caged indoor drone</li><li>Rugged laptop with a GPU</li>
         <li>Existing site heat detectors + crew wearables</li><li>${T('team size and roles')}</li></ul></div>
-      <div><div class="k">// roadmap</div><ul class="list">
-        <li>Phase 1 · pilot on one site · ${T('duration')}</li><li>Phase 2 · Protection Civile integration · ${T('duration')}</li>
-        <li>Phase 3 · regional rollout · ${T('duration')}</li><li>Next: retrain the GNN on FDS simulations of real plants</li></ul></div>
-    </div></div>` },
+      <div><div class="k">// steps from idea to product · estimated duration</div><ul class="list">
+        <li>1 · Prototype (done): twin, models, voice · 48 h</li>
+        <li>2 · Site data: plans, detectors, drone flights · ${T('duration')}</li>
+        <li>3 · Pilot on one site with the Protection Civile · ${T('duration')}</li>
+        <li>4 · Certification, integration, regional rollout · ${T('duration')}</li>
+        <li>Total to market: ${T('total duration')}</li></ul></div>
+    </div>
+    <div class="k" style="margin-top:24px">// supporting material: live demo · 1-min video · architecture schema · model report · public GitHub repo</div></div>` },
 
   { cam:[-128, 92, 124], at:[0, 0, -4], drift:0.012, html:`
-    <div class="pos-tl"><div class="k">// 09 — Commercial feasibility</div><h2>Cheap enough for<br>every classified site.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — Commercial feasibility</div><h2>Cheap enough for<br>every classified site.</h2></div>
     <div class="pos-bl" style="max-width:1700px"><div class="grid2">
       <div><div class="k">// market</div><ul class="list">
         <li>Tunisian classified industrial sites · ${T('count')}</li><li>Protection Civile regional units</li>
@@ -105,10 +127,18 @@ const SLIDES = [
         <tr><td>Thermal drone</td><td>${T('price')}</td></tr><tr><td>Indoor caged drone</td><td>${T('price')}</td></tr>
         <tr><td>GPU laptop</td><td>${T('price')}</td></tr><tr><td>Software</td><td>open-source models · ${T('LLM cost / incident')}</td></tr>
         <tr><td>Total</td><td>${T('total')} + ${T('yearly subscription')}</td></tr></table></div>
+    </div>
+    <div class="grid2" style="margin-top:26px">
+      <div><div class="k">// global project cost</div><table class="std">
+        <tr><td>Development</td><td>${T('cost')}</td></tr><tr><td>Pilot site</td><td>${T('cost')}</td></tr>
+        <tr><td>Rollout (per region)</td><td>${T('cost')}</td></tr></table></div>
+      <div><div class="k">// funding & viability</div><ul class="list">
+        <li>Site operators buy kits (regulatory safety duty)</li><li>Protection Civile: training licence</li>
+        <li>${T('grants / incubator / partners')}</li><li>Subscriptions cover maintenance and updates</li></ul></div>
     </div></div>` },
 
   { cam:[-128, 70, 126], at:[0, 0, -4], drift:0.01, html:`
-    <div class="pos-tl"><div class="k">// 10 — Business model canvas</div></div>
+    <div class="pos-tl"><div class="k">// {n} — Business model canvas</div></div>
     <div style="position:absolute;left:96px;top:170px"><div class="bmc">
       <div class="kp"><b>key partners</b>${T('from team BMC')}</div>
       <div><b>key activities</b>${T('…')}</div>
@@ -121,17 +151,19 @@ const SLIDES = [
       <div class="rev"><b>revenue streams</b>${T('…')}</div></div></div>` },
 
   { cam:[-86, 22, 82], at:[-52, 2, 50], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// 11 — With the Protection Civile</div><h2>Deployment,<br>step by step.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — With the Protection Civile</div><h2>Deployment,<br>step by step.</h2></div>
     <div class="pos-bl"><table class="std">
       <tr><td>Equipment</td><td>one drone kit + laptop per regional unit</td></tr>
       <tr><td>Data</td><td>site floor plans, detector feeds, hazardous-material inventory</td></tr>
       <tr><td>Training</td><td>the same simulator trains crews on realistic scenarios</td></tr>
       <tr><td>Maintenance</td><td>${T('who maintains drones / software, how often')}</td></tr>
+      <tr><td>Support</td><td>on-call technical support, scenario updates, yearly joint exercise</td></tr>
       <tr><td>Pilot</td><td>one classified site, ${T('duration')}, measured against today’s practice</td></tr></table></div>` },
 
   { cam:[-160, 118, 150], at:[0, 0, -12], drift:0.01, html:`
-    <div class="pos-tl"><div class="k">// 12</div><h1>Know before<br>you go in.</h1>
-      <p class="lead">The ask: one pilot site<br>with the Protection Civile.</p></div>
+    <div class="pos-tl"><div class="k">// {n}</div><h1>Know before<br>you go in.</h1>
+      <p class="lead">The ask: one pilot site<br>with the Protection Civile.</p>
+      <div class="k" style="margin-top:28px">// deliverables: BMC · team report · empathy map · 1-min video · model report · GitHub repo</div></div>
     <div class="pos-br"><div class="mark">A3TN</div><div class="k">// ${T(M.repo)}</div></div>` },
 ];
 
@@ -193,7 +225,7 @@ function go(i, instant = false){
   tween = instant ? null : { t:0 };
   if (instant){ camera.position.set(...sl.cam); atNow.set(...sl.at); }
   t = 0;
-  const el = document.getElementById('slide'); el.innerHTML = sl.html;
+  const el = document.getElementById('slide'); el.innerHTML = htmlOf(i);
   el.querySelectorAll('h1,h2,.lead,.k,.mark').forEach(n => decode(n));
   document.getElementById('count').textContent = `${String(i + 1).padStart(2, '0')} / ${SLIDES.length}`;
   document.getElementById('bar').style.width = `${(i + 1) / SLIDES.length * 100}%`;
@@ -261,7 +293,7 @@ document.getElementById('export').onclick = async () => {
     for (let k = 0; k < 50; k++) frame(1 / 30);            // let flames and smoke fill in
     const img = renderer.domElement.toDataURL('image/jpeg', 0.9);
     const page = document.createElement('section'); page.className = 'page';
-    page.innerHTML = `<img src="${img}" alt=""><div class="pshade"></div><div class="slide">${SLIDES[i].html}</div>
+    page.innerHTML = `<img src="${img}" alt=""><div class="pshade"></div><div class="slide">${htmlOf(i)}</div>
       <div class="pfoot"><span>A3TN // Command</span><span>${String(i + 1).padStart(2, '0')} / ${SLIDES.length}</span></div>`;
     out.appendChild(page);
     await new Promise(r => setTimeout(r, 30));

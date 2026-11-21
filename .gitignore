@@ -21,3 +21,4 @@ __pycache__/
 .ignore
 /yolo11n.pt
 ml/models/yolo_train.log
+/runs/

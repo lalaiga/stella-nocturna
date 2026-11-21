@@ -1,6 +1,6 @@
 # A3TN Command: AI model report
 
-A3TN Command helps Protection Civile commanders keep crews safe at industrial fires. Its AI does four jobs: **see** the fire (drone vision), **predict** where smoke and heat will go inside buildings (graph neural network), **combine** every sensor into one picture (sensor fusion), and **listen and talk** to gloved firefighters (speech + language model). All models except the language model run locally on one laptop GPU, so the system keeps working on a site with no internet.
+A3TN Command helps Protection Civile commanders keep crews safe at industrial fires. We **trained two models**: a fire/smoke detector for drone video (YOLO11n) and a graph neural network that forecasts smoke and heat inside buildings. We **integrate three pretrained models** for hands-free voice (Whisper, Gemini, Piper). A **Bayesian fusion layer** (probabilistic reasoning, not a trained model) combines every sensor and model output into one picture with explicit uncertainty. All models except the language model run locally on one laptop GPU, so the system keeps working on a site with no internet.
 
 ---
 
@@ -17,15 +17,15 @@ A3TN Command helps Protection Civile commanders keep crews safe at industrial fi
 
 **Dataset.** D-Fire (de Venâncio et al., 2022): 21,527 images with YOLO labels, two classes (0 smoke, 1 fire), including fire-only, smoke-only, both, and hard negatives (no fire, fire-like scenes). We use the published train / test split (test = validation here). Augmentation: Ultralytics defaults (mosaic, HSV, flips, scale).
 
-**Training.** 640 px, batch 32, cosine LR, early stopping (patience 15), on an RTX 5050 laptop GPU.
+**Training.** 30 epochs, 640 px, batch 16, cosine LR, early-stopping patience 15, on an RTX 5050 laptop GPU (~9 min per epoch). Curves, confusion matrix and sample predictions are in `ml/models/yolo_*.png|jpg`; weights in `fire_yolo11n.pt` and `fire_yolo11n.onnx`.
 
-**Results** (validation split, never used for training):
+**Results** (4,306-image validation split, never used for training):
 
 | Metric | Value |
 |---|---|
-| mAP@0.5 (all) | _see `ml/models/yolo_metrics.txt`_ |
-| mAP@0.5:0.95 | _see `ml/models/yolo_metrics.txt`_ |
-| AP@0.5 fire / smoke | _see `ml/models/yolo_metrics.txt`_ |
+| mAP@0.5 (all) | **0.745** |
+| mAP@0.5:0.95 | **0.424** |
+| AP@0.5 smoke / fire | 0.801 / 0.688 |
 | Inference (RTX 5050, 640 px) | shown live in the app (ms per frame) |
 
 **In the app.** Drone D1's camera panel replays held-out validation images through the model in real time; detections feed the sensor-fusion fire probability of the cell D1 is watching.
@@ -61,7 +61,9 @@ A3TN Command helps Protection Civile commanders keep crews safe at industrial fi
 
 ---
 
-## 3. Sensor fusion
+## 3. Sensor fusion (probabilistic layer, not a trained model)
+
+This component has no learned parameters: it applies Bayes' rule and inverse-variance weighting with hand-set sensor reliabilities. It is documented here because it is the layer that turns the trained models' outputs into decisions.
 
 **Task.** Turn many noisy, partial sensors into one trustworthy picture per map cell and per room.
 
@@ -74,7 +76,7 @@ A3TN Command helps Protection Civile commanders keep crews safe at industrial fi
 
 ---
 
-## 4. Voice assistant (speech in, speech out)
+## 4. Voice assistant (pretrained models, integrated)
 
 **Task.** Firefighters wear gloves and breathing apparatus and cannot use a touchscreen. They hold a push-to-talk button and speak.
 
