@@ -1,0 +1,11 @@
+# Challenge brief (contains organiser contact details; repo will be public)
+*.pdf
+
+# Local tooling
+graft/
+.claude/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
