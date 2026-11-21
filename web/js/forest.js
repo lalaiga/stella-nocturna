@@ -498,7 +498,14 @@ function moveAlong(u, dt){
 }
 function updateGround(u, dt){
   const sp = SPEC[u.type];
-  // crew safety: retreat from intense fire nearby
+  readSensors(u, dt);
+  // crew safety: withdraw on critical sensor readings, or when a very intense front is close
+  if ((u.state === 'working' || u.state === 'transit') && u.type !== 'dozer' && u.level >= 3){
+    u.state = 'retreat'; const wv = windVec(); const rx = u.x - wv.x * 160, rz = u.z - wv.z * 160;
+    u.path = routeGround(u, rx, rz) || [{ x:rx, z:rz }];
+    alert(3, `<b>Auto-withdraw</b>${u.id} · ${Math.round(u.sens.T)} °C · ${u.sens.q.toFixed(1)} kW/m² · CO ${Math.round(u.sens.co)} ppm`);
+    log(`${u.id} auto-withdrawn on sensor limits`, 'l2'); say(`${SPEC[u.type].name} ${u.id}, auto withdraw. Heat flux ${u.sens.q.toFixed(0)} kilowatts.`);
+  }
   if (u.state === 'working' || u.state === 'transit'){
     const k = cellAt(u.x, u.z);
     let danger = false;
@@ -533,6 +540,34 @@ function updateGround(u, dt){
 function maxNear(u){ let m = 0; const k = cellAt(u.x, u.z); if (k < 0) return 0; const ci = k % N, cj = (k / N) | 0;
   for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++){ const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= N || j >= N) continue; const n = ix(i, j); if (W.state[n] === 1) m = Math.max(m, W.inten[n]); } return m; }
 const LAKEPT = () => ({ x:cx(LAKE.i), z:cx(LAKE.j) });
+/* crew sensors in the wildfire: radiant heat from every burning cell (point source, chi_r 0.3, Q = I x cell width),
+   air temperature from nearby flames, CO from the downwind smoke plumes, visibility from smoke density */
+const LIMS = { T:[45, 60, 100], q:[1.6, 4.7, 10], co:[35, 200, 1200] };
+const lvlOf = (v, a) => v >= a[2] ? 3 : v >= a[1] ? 2 : v >= a[0] ? 1 : 0;
+function senseAt(x, z){
+  let q = 0, dT = 0, co = 0;
+  const wv = windVec(), r = 15, ci = Math.floor((x + HALF) / CS), cj = Math.floor((z + HALF) / CS);
+  for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++){
+    const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= N || j >= N) continue;
+    const k = ix(i, j); if (W.state[k] !== 1) continue;
+    const dx = cx(i) - x, dz = cx(j) - z, d2 = dx * dx + dz * dz, L = 0.0775 * Math.pow(W.inten[k], 0.46);
+    q += 0.3 * W.inten[k] * CS / (4 * Math.PI * Math.max(d2 + L * L, 16));
+    const d = Math.sqrt(d2), down = d > 1 ? (dx * -wv.x + dz * -wv.z) / d : 0;     // >0 when the crew is downwind of the cell
+    dT += 260 * Math.min(1, W.inten[k] / 2500) * Math.exp(-d / (10 + 8 * Math.max(0, down)));
+  }
+  for (const s of sources.slice(0, 16)){
+    const dx = x - s.x, dz = z - s.z, xd = dx * wv.x + dz * wv.z, yc = -dx * wv.z + dz * wv.x;
+    const sig = 15 + 0.22 * Math.max(0, xd);
+    co += 18 * s.w * Math.exp(-(yc * yc) / (2 * sig * sig)) / (1 + Math.max(0, xd) / 40) * (xd > -30 ? 1 : 0.1);
+  }
+  return { T:22 + Math.min(dT, 900), q, co, vis:Math.min(2000, 3 / Math.max(1e-3, co / 500)) };
+}
+function readSensors(u, dt){
+  const s = senseAt(u.x, u.z), k = 1 - Math.exp(-dt / 2);
+  u.sens = u.sens || { T:22, q:0, co:0, vis:2000 };
+  for (const key of ['T', 'q', 'co', 'vis']) u.sens[key] += (s[key] - u.sens[key]) * k;
+  u.level = Math.max(lvlOf(u.sens.T, LIMS.T), lvlOf(u.sens.q, LIMS.q), lvlOf(u.sens.co, LIMS.co));
+}
 function flyTo(u, x, z, y, dt){
   const sp = SPEC[u.type], dx = x - u.x, dz = z - u.z, d = Math.hypot(dx, dz);
   const s = Math.min(d, sp.speed * dt); if (d > 0.01){ u.x += dx / d * s; u.z += dz / d * s; u.heading = Math.atan2(dx, dz); }
@@ -691,6 +726,40 @@ function runForecast(){
     if (FC.contained === null && units.length) alert(1, `<b>Not containable</b>with current resources · forecast says add aircraft`, 15);
   }, 0);
 }
+function renderPrecautions(){
+  const el = $('prec'); if (!el) return;
+  const row = (st, text, note = '') => `<div class="${st}"><i>${st === 'ok' ? '✓' : st === 'warn' ? '!' : '×'}</i><span>${text}</span><em>${note}</em></div>`;
+  const ground = units.filter(u => !SPEC[u.type].air && u.state !== 'return');
+  const crews = ground.filter(u => u.type !== 'dozer');
+  const air = units.filter(u => SPEC[u.type].air && u.state !== 'return');
+  // a safe cell: burnt black, cleared line, road or water, with nothing burning next to it
+  const safeNear = (x, z, R) => { const ci = Math.floor((x + HALF) / CS), cj = Math.floor((z + HALF) / CS), r = Math.ceil(R / CS);
+    for (let dj = -r; dj <= r; dj++) for (let di = -r; di <= r; di++){ const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= N || j >= N || di * di + dj * dj > r * r) continue;
+      const k = ix(i, j), f = W.fuel[k]; if (!(W.state[k] >= 2 || f === F.ROAD || f === F.WATER || f === F.NONE)) continue;
+      let hot = false; for (const [a, b] of D8){ const n = ix(clamp(i + a, 0, N - 1), clamp(j + b, 0, N - 1)); if (W.state[n] === 1){ hot = true; break; } } if (!hot) return true; }
+    return false; };
+  const noEscape = crews.filter(u => !safeNear(u.x, u.z, 150));
+  const noAnchor = crews.filter(u => u.state === 'working' && !safeNear(u.x, u.z, 100));
+  let black = 0; for (let k = 0; k < NN; k++) if (W.state[k] >= 2) black++;
+  const uphill = crews.filter(u => { const k = nearestBurning(W, u.x, u.z, 150); const c = cellAt(u.x, u.z); return k >= 0 && c >= 0 && height[c] - height[k] > 12; });
+  const hot = crews.filter(u => (u.level || 0) >= 2);
+  const villageSoon = FC && FC.village !== null && FC.village < 2 * 3600;
+  el.innerHTML = [
+    '<div class="dim" style="grid-template-columns:1fr">// LACES</div>',
+    row(air.length ? 'ok' : W.burning.length ? 'warn' : 'ok', 'Lookouts', air.length ? `${air.length} aircraft observing` : 'no aerial lookout'),
+    row(noAnchor.length ? 'warn' : 'ok', 'Anchor points', noAnchor.length ? `${noAnchor.map(u => u.id).join(' ')} not anchored` : crews.length ? 'all crews anchored' : 'no crews'),
+    row('ok', 'Communications', 'radio + Visor link'),
+    row(noEscape.length ? 'bad' : 'ok', 'Escape routes (150 m)', noEscape.length ? `${noEscape.map(u => u.id).join(' ')} cut off` : crews.length ? 'all crews' : 'no crews'),
+    row('ok', 'Safety zones', `${(black * CS * CS / 1e4).toFixed(1)} ha black · road · lake`),
+    '<div class="dim" style="grid-template-columns:1fr;margin-top:4px">// watch-outs</div>',
+    row(env.windSpeed > 8 ? 'bad' : env.windSpeed > 5 ? 'warn' : 'ok', 'Wind', `${env.windSpeed} m/s from ${compass(env.windFrom)}`),
+    row(env.moist < 8 ? 'warn' : 'ok', 'Fuel moisture', `${env.moist} % ${env.moist < 8 ? '(critical)' : ''}`),
+    row(W.spots ? 'warn' : 'ok', 'Spot fires', W.spots ? `${W.spots} across the line` : 'none'),
+    row(uphill.length ? 'bad' : 'ok', 'Crews above the fire', uphill.length ? `${uphill.map(u => u.id).join(' ')} uphill: fire runs upslope` : 'none'),
+    row(hot.length ? 'bad' : 'ok', 'Crew exposure', hot.length ? hot.map(u => `${u.id} ${Math.round(u.sens.T)}°C ${u.sens.q.toFixed(1)} kW/m²`).join(' ') : 'all in limits'),
+    row(villageSoon && !evac.on ? 'bad' : villageSoon ? 'warn' : 'ok', 'Residents', villageSoon ? (evac.on ? `evacuating ${Math.floor(evac.done)}/340` : `fire in ${fmtT(FC.village)}: evacuate`) : 'not threatened'),
+  ].join('');
+}
 function renderPools(){
   $('pools').innerHTML = Object.entries(SPEC).map(([k, s]) => `<div class="pool"><span class="n">${s.name}</span><span class="c">${pools[k]}/${s.count}</span>
     <button class="txt ${tool === 'd:' + k ? 'hot' : ''}" data-act="tool" data-v="d:${k}" ${pools[k] ? '' : 'disabled'}>dispatch</button></div>`).join('');
@@ -698,15 +767,22 @@ function renderPools(){
 const STATE_TXT = { pattern:'flying the circuit', transit:'en route', working:'attacking the fire', line:'cutting firebreak', idle:'line done, standing by', retreat:'withdrawing (too intense)', return:'returning', toLake:'flying to the lake', scoop:'scooping water', toFire:'flying to the fire' };
 function renderUnits(force){
   $('units').innerHTML = units.length ? units.map(u => {
-    const cls = u.state === 'retreat' ? 'r' : u.state === 'working' || u.state === 'line' || u.state === 'toFire' ? 'w' : 't';
-    const extra = SPEC[u.type].air ? ` · ${u.drops} drops` : u.state === 'working' ? ` · ${u.did} cells out` : u.state === 'transit' && u.path ? ` · ${Math.round(u.path.length * CS)} m` : '';
+    const cls = u.state === 'retreat' || (u.level || 0) >= 2 ? 'r' : u.state === 'working' || u.state === 'line' || u.state === 'toFire' ? 'w' : 't';
+    const tele = !SPEC[u.type].air && u.sens ? ` · ${Math.round(u.sens.T)}°C ${u.sens.q.toFixed(1)} kW/m²` : '';
+    const extra = (SPEC[u.type].air ? ` · ${u.drops} drops` : u.state === 'working' ? ` · ${u.did} cells out` : u.state === 'transit' && u.path ? ` · ${Math.round(u.path.length * CS)} m` : '') + tele;
     return `<div class="unit ${selUnit === u ? 'sel' : ''}" data-act="unit" data-id="${u.id}"><i class="d ${cls}"></i><span><b>${u.id}</b> ${SPEC[u.type].name}</span><button class="txt" data-act="recall" data-id="${u.id}">recall</button><span class="st">${STATE_TXT[u.state] || u.state}${extra}</span></div>`;
   }).join('') : '<div class="dim">nothing deployed</div>';
   const c = $('ucard');
-  if (selUnit){ c.hidden = false; c.innerHTML = `<div class="kicker">// ${selUnit.id} · ${SPEC[selUnit.type].name}</div><div>${STATE_TXT[selUnit.state] || selUnit.state}</div>
+  if (selUnit){ const S_ = selUnit.sens, lv = (v, a) => ['', 'warn', 'bad', 'bad'][lvlOf(v, a)];
+    const tele = S_ && !SPEC[selUnit.type].air ? `<div class="readings">
+      <div class="${lv(S_.T, LIMS.T)}"><div class="k">air</div><div class="v">${Math.round(S_.T)}<small>°C</small></div></div>
+      <div class="${lv(S_.q, LIMS.q)}"><div class="k">radiant heat</div><div class="v">${S_.q.toFixed(1)}<small>kW/m²</small></div></div>
+      <div class="${lv(S_.co, LIMS.co)}"><div class="k">smoke (co)</div><div class="v">${Math.round(S_.co)}<small>ppm</small></div></div>
+      <div class="${S_.vis < 10 ? 'bad' : ''}"><div class="k">visibility</div><div class="v">${S_.vis >= 1000 ? '>1k' : Math.round(S_.vis)}<small>m</small></div></div></div>` : '';
+    c.hidden = false; c.innerHTML = `<div class="kicker">// ${selUnit.id} · ${SPEC[selUnit.type].name}</div><div>${STATE_TXT[selUnit.state] || selUnit.state}</div>${tele}
     <div class="tools"><button class="txt" data-act="retarget">new target</button><button class="txt" data-act="recall" data-id="${selUnit.id}">recall</button><button class="txt" data-act="unsel">close</button></div>`; }
   else c.hidden = true;
-  for (const u of units){ u.labelEl.className = 'ulabel2' + (u.state === 'retreat' ? ' r' : u.state === 'working' || u.state === 'toFire' ? ' w' : '') + (selUnit === u ? ' sel' : ''); }
+  for (const u of units){ u.labelEl.className = 'ulabel2' + (u.state === 'retreat' || (u.level || 0) >= 2 ? ' r' : u.state === 'working' || u.state === 'toFire' ? ' w' : '') + (selUnit === u ? ' sel' : ''); }
 }
 function renderVisor(){
   if (nowT > vis.until && vis.lvl){ vis = { lvl:0, html:W.burning.length ? `<b>Visor watching</b>${units.length} unit${units.length === 1 ? '' : 's'} deployed` : '<b>Visor quiet</b>no active fire', until:0 }; }
@@ -828,7 +904,7 @@ function frame(){
   }
   for (const h of houses){ if (W.state[h.k] === 1 && !h.lit){ h.lit = true; h.g.children[0].material = h.g.children[0].material.clone(); h.g.children[0].material.emissive.setHex(0xff5010); h.g.children[0].material.emissiveIntensity = 0.6; } else if (W.state[h.k] >= 2 && !h.burnt){ h.burnt = true; h.g.scale.y = 0.55; h.g.children.forEach(c => { c.material = c.material.clone(); c.material.color.setHex(0x1a1816); c.material.emissiveIntensity = 0; }); } }
   uiAcc += dt; fcAcc += dt;
-  if (uiAcc > 0.3){ uiAcc = 0; $('clock').textContent = clock(W.t); renderFire(); renderForecast(); renderUnits(); renderPools(); renderVisor(); drawChart(); }
+  if (uiAcc > 0.3){ uiAcc = 0; $('clock').textContent = clock(W.t); renderFire(); renderForecast(); renderUnits(); renderPools(); renderVisor(); renderPrecautions(); drawChart(); }
   if (fcAcc > 6 && !paused){ fcAcc = 0; runForecast(); }
   controls.update(); composer.render(); labelR.render(scene, camera);
   requestAnimationFrame(frame);

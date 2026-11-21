@@ -411,8 +411,32 @@ onEv('plans', () => renderAll(true));
 onEv('view', () => renderAll(true));
 onEv('scan-done', ({ building }) => { if (!P.open) select({ type:'building', id:building }); });
 
+
+/* ---------------- live safety precautions: industrial fire ---------------- */
+function renderPrecautions(){
+  const el = $('prec'); if (!el) return;
+  const row = (st, text, note = '') => `<div class="${st}"><i>${st === 'ok' ? '✓' : st === 'warn' ? '!' : '×'}</i><span>${text}</span><em>${note}</em></div>`;
+  const ground = units.filter(u => !u.isDrone), f = primaryFire();
+  const inExcl = ground.filter(u => u.sens.q >= LIM.q.v[1]);
+  const downwind = f ? ground.filter(u => { const dx = u.pos.x - f.x, dz = u.pos.z - f.z, d = Math.hypot(dx, dz); return d < 70 && (dx * WV.x + dz * WV.z) / Math.max(d, 1) > 0.5 && u.mode !== 'idle'; }) : [];
+  const smoky = ground.filter(u => u.sens.co >= LIM.co.v[0] || u.sens.vis < 10);
+  const missing = Object.values(BUILDINGS).reduce((a, b) => a + Math.max(0, b.missing - b.persons.filter(p => p.found || p.rescued).length), 0);
+  const located = Object.values(BUILDINGS).reduce((a, b) => a + b.persons.filter(p => p.found && !p.rescued).length, 0);
+  const drain = tasks.find(t => t.kind === 'contain');
+  const ign = W1.burning ? 1 : W1.dose / W1.doseMax;
+  el.innerHTML = [
+    row(inExcl.length ? 'bad' : 'ok', 'Exclusion zone (4.7 kW/m²) respected', inExcl.map(u => u.id).join(' ') || 'all clear'),
+    row(downwind.length ? 'warn' : 'ok', 'Approach from upwind', downwind.length ? downwind.map(u => u.id).join(' ') + ' downwind' : `from ${compass(sim.windFrom)}`),
+    row(smoky.length ? 'warn' : 'ok', 'Breathing apparatus in smoke', smoky.length ? smoky.map(u => u.id).join(' ') + ' in smoke' : 'no crew in smoke'),
+    row(sim.autoWithdraw ? 'ok' : 'bad', 'Auto-withdraw at critical exposure', sim.autoWithdraw ? 'armed' : 'OFF'),
+    row(missing ? 'bad' : located || !S.rollCall ? 'warn' : 'ok', 'Personnel accounted for', missing ? `${missing} missing` : located ? `${located} located, not out` : S.rollCall ? 'roll call complete' : 'roll call pending'),
+    row(drain && drain.status === 'done' ? 'ok' : 'warn', 'Toxic run-off contained', drain && drain.status === 'done' ? 'drain sealed' : 'drain open'),
+    row(ign > 0.6 ? 'bad' : ign > 0.2 ? 'warn' : 'ok', 'Fire spread to W-1 prevented', W1.burning ? 'W-1 burning' : `${Math.round(ign * 100)} % ignition risk`),
+  ].join('');
+}
+
 export function renderAll(force){
-  renderTop(); renderVisor(); renderRoster(); renderSite(); renderBuildings(); renderCard(force); renderLog(); renderTimeline();
+  renderTop(); renderVisor(); renderRoster(); renderSite(); renderBuildings(); renderCard(force); renderLog(); renderTimeline(); renderPrecautions();
 }
 export function uiTick(){ renderAll(false); camTick(); }
 export function uiFast(){ renderTimeline(); }
