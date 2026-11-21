@@ -1,222 +1,3 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>A3TN Command</title>
-<style>
-:root{
-  --bg:#05080e; --panel:rgba(10,15,24,.86); --line:rgba(148,163,184,.14); --line2:rgba(148,163,184,.26);
-  --text:#e5ecf4; --muted:#8b98aa; --dim:#5d6a7c;
-  --safe:#34d399; --adv:#fbbf24; --warn:#f87171; --crit:#ef4444; --accent:#5eead4; --fire:#ff8a3d;
-  --r:10px;
-}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
-.num{font-variant-numeric:tabular-nums}
-button{font:inherit;color:inherit}
-#stage{position:fixed;inset:0}
-#stage canvas{display:block;touch-action:none}
-.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-#vignette{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 160px 30px rgba(239,68,68,0);transition:box-shadow .6s}
-#vignette.on{box-shadow:inset 0 0 160px 30px rgba(239,68,68,.32)}
-
-/* Visor */
-#visor{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:20;display:flex;align-items:center;gap:10px;
-  max-width:min(760px,calc(100vw - 680px));min-width:300px;padding:9px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line2);
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);font-size:13px;transition:background .3s,border-color .3s}
-#visor .vdot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--safe);box-shadow:0 0 0 3px rgba(52,211,153,.18)}
-#visorText{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#visorText .more{color:var(--muted);margin-left:6px}
-#visor.l1{border-color:rgba(251,191,36,.55)} #visor.l1 .vdot{background:var(--adv);box-shadow:0 0 0 3px rgba(251,191,36,.2)}
-#visor.l2{background:rgba(60,12,14,.9);border-color:rgba(248,113,113,.7)} #visor.l2 .vdot{background:var(--warn);box-shadow:0 0 0 3px rgba(248,113,113,.25)}
-#visor.l3{background:rgba(90,10,12,.94);border-color:var(--crit);animation:vpulse 1s ease-in-out infinite} #visor.l3 .vdot{background:#fff;box-shadow:0 0 0 3px rgba(239,68,68,.5)}
-@keyframes vpulse{50%{box-shadow:0 0 0 6px rgba(239,68,68,.25)}}
-#visorBtn{flex:none;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.1);border-radius:999px;padding:3px 11px;cursor:pointer;font-size:12px;font-weight:600}
-#visorBtn:hover{background:rgba(255,255,255,.2)}
-
-/* Panels */
-.panel{position:fixed;top:60px;bottom:74px;width:312px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:2px;z-index:10;scrollbar-width:thin;scrollbar-color:#253041 transparent}
-#left{left:12px} #right{right:12px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:12px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
-.card h2{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
-.card h2 .x{cursor:pointer;color:var(--dim);font-size:15px;letter-spacing:0;padding:0 2px;background:none;border:0}
-h1{margin:0;font-size:16px;letter-spacing:.02em}
-h1 span{color:var(--fire)}
-.sub{color:var(--muted);font-size:12px}
-.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.stat{background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
-.stat .k{font-size:11px;color:var(--muted)} .stat .v{font-size:17px;font-weight:600}
-.stat .v.red{color:var(--warn)}
-.fire-row{display:grid;grid-template-columns:1fr auto;gap:2px 8px;margin-top:9px;font-size:12px}
-.fire-row .meta{color:var(--muted);text-align:right}
-.bar{height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden;grid-column:1/-1}
-.bar i{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#ffd166,#ff7a2e,#e63946)}
-.why-title{font-weight:600;margin-bottom:6px;display:flex;gap:8px;align-items:center}
-.why ul{margin:6px 0 8px;padding-left:16px} .why li{margin:3px 0}
-.why .cause{color:var(--muted);font-size:12px;margin:4px 0}
-.why .advice{border-left:2px solid var(--line2);padding-left:8px;font-size:12px;color:#c9d4e0}
-.pill{display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.04em;padding:1px 7px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
-.p0{background:rgba(52,211,153,.14);color:var(--safe)} .p1{background:rgba(251,191,36,.15);color:var(--adv)}
-.p2{background:rgba(248,113,113,.18);color:var(--warn)} .p3{background:var(--crit);color:#fff}
-.pd{background:rgba(148,163,184,.14);color:var(--muted)} .pa{background:rgba(94,234,212,.13);color:var(--accent)}
-.cmd{display:flex;gap:6px;margin-top:8px}
-.cmd input{flex:1;min-width:0;background:rgba(255,255,255,.04);border:1px solid var(--line2);border-radius:8px;padding:7px 9px;color:var(--text);font:inherit}
-.cmd input:focus{outline:none;border-color:var(--accent)}
-.btn{background:rgba(255,255,255,.05);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
-.btn:hover{background:rgba(255,255,255,.1)}
-.btn.primary{background:rgba(94,234,212,.14);border-color:rgba(94,234,212,.45);color:var(--accent)}
-.btn.danger{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);color:#fecaca}
-.btn.sm{padding:3px 8px;font-size:12px;border-radius:7px}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.chip{font-size:12px;padding:4px 9px;border-radius:999px;border:1px solid var(--line2);background:transparent;cursor:pointer;color:#cdd6e1}
-.chip:hover{border-color:var(--accent);color:var(--accent)}
-#cmdFeedback{font-size:12px;color:var(--muted);margin-top:6px;min-height:1em}
-.log{font-size:12px;display:flex;flex-direction:column;gap:4px;max-height:170px;overflow:auto}
-.log div{display:grid;grid-template-columns:52px 1fr;gap:6px;color:#c7d1dc}
-.log .t{color:var(--dim)} .log .l2,.log .l3{color:#fca5a5} .log .l1{color:#fde68a} .log .ok{color:#a7f3d0}
-.list{display:flex;flex-direction:column;gap:2px}
-.row{display:grid;grid-template-columns:10px 26px 1fr auto;gap:2px 8px;align-items:center;padding:6px;border-radius:7px;cursor:pointer}
-.row:hover,.row.sel{background:rgba(255,255,255,.05)}
-.row .d{width:8px;height:8px;border-radius:50%}
-.row .st{grid-column:3/-1;color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.row .rd{font-size:11.5px;color:var(--muted)}
-.d.l0{background:var(--safe)} .d.l1{background:var(--adv)} .d.l2{background:var(--warn)} .d.l3{background:var(--crit);box-shadow:0 0 0 3px rgba(239,68,68,.35)}
-.task{padding:8px 6px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center}
-.task:first-child{border-top:0}
-.task .tt{font-weight:500;cursor:pointer} .task .tu{color:var(--muted);font-size:11.5px}
-.task .bar{height:3px} .task .bar i{background:var(--accent)}
-.sens{display:grid;grid-template-columns:80px 1fr 74px;gap:4px 8px;align-items:center;margin:5px 0;font-size:12px}
-.sens .k{color:var(--muted)} .sens .v{text-align:right;font-weight:600}
-.sens .bar{grid-column:auto;height:4px}
-.sens .lim{grid-column:2/-1;font-size:10.5px;color:var(--dim);margin-top:-3px}
-.insp-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.spark{width:100%;height:34px;display:block;margin-top:6px}
-.hint{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:30;background:rgba(94,234,212,.16);border:1px solid rgba(94,234,212,.5);color:var(--accent);padding:7px 14px;border-radius:999px;font-size:13px;display:none}
-.hint.on{display:block}
-
-/* Bottom bar */
-#controls{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:15;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;padding:8px 10px;max-width:calc(100vw - 24px)}
-.seg{display:flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
-.seg button{background:transparent;border:0;padding:6px 10px;cursor:pointer;color:var(--muted)}
-.seg button.on{background:rgba(94,234,212,.15);color:var(--accent)}
-.ctl{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:12px}
-.ctl select,.ctl input[type=range]{accent-color:var(--accent)}
-.ctl select{background:#0f1622;color:var(--text);border:1px solid var(--line2);border-radius:7px;padding:4px 6px;font:inherit}
-.ctl input[type=range]{width:96px}
-.ctl .v{color:var(--text);min-width:52px}
-
-/* 3D labels */
-.ulabel{pointer-events:auto;cursor:pointer;display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:2px 7px 2px 5px;border-radius:999px;
-  background:rgba(7,11,18,.82);border:1px solid var(--line2);color:var(--text);white-space:nowrap;user-select:none}
-.ulabel .d{width:7px;height:7px;border-radius:50%}
-.ulabel.sel{border-color:var(--accent);box-shadow:0 0 0 2px rgba(94,234,212,.25)}
-.ulabel .rv{font-weight:500;color:#fecaca;display:none}
-.ulabel.hot .rv{display:inline}
-.alabel{font-size:10px;letter-spacing:.06em;color:#93a1b4;text-shadow:0 1px 2px #000;white-space:nowrap;pointer-events:none}
-.glabel{font-size:11px;font-weight:600;color:#6b7a8f;pointer-events:none}
-
-@media (max-width:1100px){
-  #visor{max-width:calc(100vw - 24px);top:8px}
-  .panel{top:auto;bottom:auto}
-}
-@media (max-width:1100px){
-  body{overflow:auto}
-  #stage{position:relative;height:62vh;min-height:360px}
-  #visor{position:absolute}
-  #vignette{position:absolute;height:62vh;min-height:360px}
-  .panel{position:static;width:auto;overflow:visible;padding:0 16px;margin-top:10px}
-  #controls{position:static;transform:none;margin:10px 16px 0;max-width:none}
-  .hint{position:fixed;bottom:16px}
-  body{padding-bottom:24px}
-}
-@media (prefers-reduced-motion:reduce){#visor.l3{animation:none}}
-</style>
-<script type="importmap">
-{"imports":{
-  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-}}
-</script>
-</head>
-<body>
-<div id="stage"></div>
-<div id="vignette"></div>
-
-<header id="visor" class="l0" role="status" aria-live="polite">
-  <span class="vdot"></span><span id="visorText"><b>Visor quiet</b></span>
-  <button id="visorBtn" data-act="visor" hidden></button>
-</header>
-
-<aside id="left" class="panel">
-  <section class="card">
-    <h1>A3TN <span>Command</span></h1>
-    <p class="sub" style="margin:4px 0 0">Prototype: simulated fire at a chemical site, 3D view. Drag to orbit, scroll to zoom, tap a unit to inspect its sensors, or a cell for its risk. Nothing here is real data.</p>
-  </section>
-  <section class="card">
-    <h2>Telemetry</h2>
-    <div class="stats" id="telStats"></div>
-    <div id="fireList"></div>
-  </section>
-  <section class="card why">
-    <h2>Why is this red?</h2>
-    <div id="whyBody" class="sub">Select a cell on the map.</div>
-  </section>
-  <section class="card">
-    <h2>Zone</h2>
-    <div id="zoneText" class="sub"></div>
-    <div class="sub" style="margin-top:8px;color:var(--text)">Say it or tap it:</div>
-    <form class="cmd" id="cmdForm" autocomplete="off">
-      <input id="cmdInput" placeholder="e.g. send E2 to C4" aria-label="Command">
-      <button type="button" class="btn" id="micBtn" title="Speak a command" hidden>Mic</button>
-      <button class="btn primary">Go</button>
-    </form>
-    <div class="chips">
-      <button class="chip" data-cmd="foam E2">Foam attack · E2</button>
-      <button class="chip" data-cmd="foam E1">Reinforce foam · E1</button>
-      <button class="chip" data-cmd="pull back all in red">Pull back units in red</button>
-      <button class="chip" data-cmd="recon D1">Drone recon · D1</button>
-    </div>
-    <div id="cmdFeedback"></div>
-  </section>
-  <section class="card">
-    <h2>Log</h2>
-    <div class="log" id="logList"></div>
-  </section>
-</aside>
-
-<aside id="right" class="panel">
-  <section class="card" id="inspector" hidden></section>
-  <section class="card">
-    <h2>Tasks</h2>
-    <div id="taskList"></div>
-  </section>
-  <section class="card">
-    <h2>Teams</h2>
-    <div class="list" id="teamList"></div>
-  </section>
-</aside>
-
-<footer id="controls" class="card">
-  <button class="btn" id="playBtn" data-act="play" style="min-width:74px">Pause</button>
-  <div class="seg" id="speedSeg">
-    <button data-act="speed" data-v="1">1×</button><button data-act="speed" data-v="5" class="on">5×</button><button data-act="speed" data-v="20">20×</button>
-  </div>
-  <label class="ctl">Wind from
-    <select id="windDir">
-      <option value="0">N</option><option value="45">NE</option><option value="90">E</option><option value="135" selected>SE</option>
-      <option value="180">S</option><option value="225">SW</option><option value="270">W</option><option value="315">NW</option>
-    </select>
-  </label>
-  <label class="ctl">Speed <input type="range" id="windSpd" min="0" max="12" step="0.5" value="4"><span class="v num" id="windSpdV">4 m/s</span></label>
-  <label class="ctl">Growth <input type="range" id="growth" min="0.5" max="2.5" step="0.1" value="1"><span class="v num" id="growthV">1.0×</span></label>
-  <label class="ctl"><input type="checkbox" id="autoW" checked> Auto-withdraw</label>
-  <button class="btn" data-act="reset">Reset</button>
-</footer>
-<div class="hint" id="hint"></div>
-
-<script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
@@ -257,6 +38,26 @@ const compass = deg => COMPASS[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
 const cellName = (c, r) => COLS[c] + (r + 1);
 const cellOf = (x, z) => [clamp(Math.floor((x + HALF) / CELL), 0, CELLS - 1), clamp(Math.floor((z + HALF) / CELL), 0, CELLS - 1)];
 const cellNameAt = (x, z) => { const [c, r] = cellOf(x, z); return cellName(c, r); };
+const cellCenter = name => { const m = /^([A-Ja-j])\s*(10|[1-9])$/.exec(String(name).trim()); if (!m) return null;
+  return { x:-HALF + (m[1].toUpperCase().charCodeAt(0) - 65) * CELL + CELL / 2, z:-HALF + (+m[2] - 1) * CELL + CELL / 2 }; };
+
+/* Shared registry + event bus: other modules (interior, planner, fusion, voice, ui) plug in here */
+const S = { clock:0, visorEvent:null, logs:[], hooks:{ step:[], drone:{}, ground:{}, arrive:{} } };
+const bus = new EventTarget();
+const emitEv = (type, detail) => bus.dispatchEvent(new CustomEvent(type, { detail }));
+const onEv = (type, fn) => bus.addEventListener(type, e => fn(e.detail));
+function addLog(text, cls = '', say = null){
+  S.logs.unshift({ t:sim.t, text, cls }); if (S.logs.length > 80) S.logs.pop();
+  emitEv('log', { text, cls });
+  if (say) emitEv('say', { text:say, prio:cls === 'l3' || cls === 'l2' ? 2 : 1 });
+}
+function setVisorEvent(html, secs = 8, say = null){ S.visorEvent = { html, until:S.clock + secs }; if (say) emitEv('say', { text:say, prio:2 }); }
+const fmt = {
+  T: v => `${Math.round(v)}°C`, q: v => `${v < 10 ? v.toFixed(1) : Math.round(v)} kW/m²`,
+  co2: v => `${Math.round(v).toLocaleString('en-US')} ppm`, co: v => `${Math.round(v).toLocaleString('en-US')} ppm`,
+  vis: v => v >= 1000 ? '>1 km' : `${v < 10 ? v.toFixed(1) : Math.round(v)} m`,
+};
+const tplus = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 
 /* ================================================================
    Renderer, scene, camera, post-processing
@@ -274,8 +75,8 @@ labelRenderer.domElement.className = 'labels';
 stage.appendChild(labelRenderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x05080e);
-scene.fog = new THREE.FogExp2(0x05080e, 0.0040);
+scene.background = new THREE.Color(0x0a0d13);
+scene.fog = new THREE.FogExp2(0x0d1118, 0.0058);   // misty night: depth through fog, fire is the only warm light
 
 const camera = new THREE.PerspectiveCamera(46, 1, 0.5, 1500);
 camera.position.set(-92, 78, 92);
@@ -296,7 +97,7 @@ const uTime = { value: 0 };
 /* ================================================================
    Lights & environment
    ================================================================ */
-scene.add(new THREE.HemisphereLight(0x4a5d84, 0x0a0c10, 0.9));
+scene.add(new THREE.HemisphereLight(0x6d7f9e, 0x0a0c10, 0.75));
 const moon = new THREE.DirectionalLight(0x9db4e0, 0.42);
 moon.position.set(-90, 140, 70);
 moon.castShadow = true;
@@ -320,9 +121,9 @@ const lightPool = [0, 1, 2].map(i => {
 });
 
 // Ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshStandardMaterial({ color:0x0b0f15, roughness:1 }));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshStandardMaterial({ color:0x10141b, roughness:1 }));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-const pad = new THREE.Mesh(new THREE.PlaneGeometry(168, 168), new THREE.MeshStandardMaterial({ color:0x171c24, roughness:0.95 }));
+const pad = new THREE.Mesh(new THREE.PlaneGeometry(168, 168), new THREE.MeshStandardMaterial({ color:0x161a21, roughness:0.95 }));
 pad.rotation.x = -Math.PI / 2; pad.position.y = 0.01; pad.receiveShadow = true; scene.add(pad);
 function flat(w, d, x, z, color, y = 0.025){
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ color, roughness:0.9 }));
@@ -375,8 +176,8 @@ function building(o){
   m.position.set(x, h / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m);
   const trim = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.5, d + 0.4), new THREE.MeshStandardMaterial({ color:0x2a313c, roughness:0.8 }));
   trim.position.set(x, h + 0.25, z); trim.castShadow = true; scene.add(trim);
-  label3D(o.short || o.id, x, h + 2, z);
-  const a = { ...o, type:'box', minX:x - w / 2, maxX:x + w / 2, minZ:z - d / 2, maxZ:z + d / 2, dose:0, burning:false, cooled:false };
+  const lab = label3D(o.short || o.id, x, h + 2, z);
+  const a = { ...o, type:'box', minX:x - w / 2, maxX:x + w / 2, minZ:z - d / 2, maxZ:z + d / 2, dose:0, burning:false, cooled:false, mesh:m, trim, labelObj:lab };
   ASSETS.push(a); return a;
 }
 function tank(o){
@@ -616,14 +417,14 @@ class Fire {
     if (this.fuel <= 0) dI -= 0.002;
     this.I = clamp(this.I + dI * dt, 0, 1);
     this.fuel = Math.max(0, this.fuel - this.I * dt / this.burnTime);
-    if (this.I < 0.015){ this.out = true; this.I = 0; addLog(`${this.name} fire extinguished`, 'ok'); onFireOut(this); }
+    if (this.I < 0.015){ this.out = true; this.I = 0; addLog(`${this.name} fire extinguished`, 'ok', `${this.name}, fire knocked down.`); onFireOut(this); }
   }
 
   visualStep(dt, time){
     const u = sim.windSpeed;
     this.flick = 1 + 0.07 * Math.sin(time * 1.3 + this.seed) + 0.10 * (noise1(time * 0.7 + this.seed) - 0.5);
     this.Ieff = this.out ? Math.max(0, this.Ieff - dt * 0.4) : clamp(this.I * this.flick, 0, 1.05);
-    const I = this.Ieff, R = this.R, H = this.H, by = this.baseY, fx = this.x, fz = this.z, live = I > 0.01 ? 1 : 0, lean = u * 0.07;
+    const I = this.Ieff, R = this.R, H = this.H, by = this.visBaseY ?? this.baseY, fx = this.x, fz = this.z, live = I > 0.01 ? 1 : 0, lean = u * 0.07;
 
     // --- Flames: additive, white core -> orange -> deep red, converging into a tilted cone
     const Fl = this.flames;
@@ -691,7 +492,7 @@ class Fire {
                      by + 1.5 + H * 0.3 + (noise1(time * 4.3 + this.seed + 7) - 0.5) * 0.8,
                      fz + (noise1(time * 2.7 + this.seed + 13) - 0.5) * 0.9 * R);
     }
-    this.glow.material.uniforms.uAmt.value = I * (0.75 + 0.35 * fl);
+    this.glow.material.uniforms.uAmt.value = I * (0.75 + 0.35 * fl); this.glow.position.y = by + 0.07;
     this.glow.scale.set(R * 6 + 2, R * 6 + 2, 1);
   }
 }
@@ -773,13 +574,13 @@ const overlayMat = new THREE.ShaderMaterial({
     void main(){
       vec2 g = (vW + 80.0) / 16.0; vec2 cell = floor(g);
       float lvl = texture2D(uRisk, (cell + 0.5) / 10.0).r * 255.0 / 85.0;
-      vec3 cS = vec3(0.13, 0.62, 0.45), cA = vec3(0.98, 0.68, 0.15), cW = vec3(0.95, 0.20, 0.15);
+      vec3 cS = vec3(0.55, 0.62, 0.72), cA = vec3(0.91, 0.69, 0.29), cW = vec3(1.0, 0.30, 0.24);
       vec3 col = lvl < 0.5 ? cS : (lvl < 1.5 ? cA : cW);
-      float a = lvl < 0.5 ? 0.035 : (lvl < 1.5 ? 0.13 : (lvl < 2.5 ? 0.22 : 0.30 + 0.07 * sin(uTime * 4.0)));
+      float a = lvl < 0.5 ? 0.0 : (lvl < 1.5 ? 0.13 : (lvl < 2.5 ? 0.22 : 0.30 + 0.07 * sin(uTime * 4.0)));
       vec4 o = vec4(col, a);
       vec2 f = fract(g), dd = min(f, 1.0 - f), fw = fwidth(g);
       float px = min(dd.x / fw.x, dd.y / fw.y);
-      o = over(o, vec3(0.55, 0.65, 0.78), (1.0 - smoothstep(0.0, 1.2, px)) * 0.22);
+      o = over(o, vec3(0.62, 0.68, 0.78), (1.0 - smoothstep(0.0, 1.2, px)) * 0.10);
       // radiant heat-flux contours: exclusion (4.7 kW/m²) and caution (1.6 kW/m²)
       float q = 0.0;
       for (int i = 0; i < 3; i++){ vec4 F = uFires[i]; if (F.z > 0.0){ vec2 d = vW - F.xy; q += 0.3 * F.z / (12.566 * max(dot(d, d) + F.w * F.w, 1.0)); } }
@@ -916,7 +717,7 @@ function droneMesh(){
   return g;
 }
 const sprayMat = () => pMat(SPRAY_FS, {}, THREE.NormalBlending, { grow:2.0 });
-const LVL_COLORS = [0x34d399, 0xfbbf24, 0xf87171, 0xef4444];
+const LVL_COLORS = [0x9fd8c0, 0xe8b04a, 0xff4d3d, 0xff4d3d];
 function addUnit(o){
   const u = Object.assign({ heading:Math.PI / 2, targetHeading:Math.PI / 2, path:null, dest:null, task:null, mode:'idle', status:'Standby at staging',
     sens:{ T:22, q:0, co2:420, co:0, vis:2000 }, level:0, hist:[], peakT:22, orbitA:0, sprayOn:false, sprayTo:new THREE.Vector3() }, o);
@@ -925,7 +726,7 @@ function addUnit(o){
   u.isDrone = u.kind === 'drone';
   u.mesh = u.isDrone ? droneMesh() : vehicleMesh(u.color);
   scene.add(u.mesh);
-  u.ring = new THREE.Mesh(new THREE.RingGeometry(3.4, 4.1, 40), new THREE.MeshBasicMaterial({ color:LVL_COLORS[0], transparent:true, opacity:0.85, depthWrite:false }));
+  u.ring = new THREE.Mesh(new THREE.RingGeometry(3.6, 3.85, 48), new THREE.MeshBasicMaterial({ color:LVL_COLORS[0], transparent:true, opacity:0.5, depthWrite:false }));
   u.ring.rotation.x = -Math.PI / 2; u.ring.renderOrder = 4; scene.add(u.ring);
   if (u.isDrone){
     u.tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 1, 0)]), new THREE.LineBasicMaterial({ color:0x5eead4, transparent:true, opacity:0.35 }));
@@ -935,7 +736,7 @@ function addUnit(o){
   hit.userData.unit = u; scene.add(hit); u.hit = hit; unitHits.push(hit);
   const el = document.createElement('div'); el.className = 'ulabel';
   el.innerHTML = `<span class="d l0"></span>${u.id}<span class="rv num"></span>`;
-  el.addEventListener('pointerdown', e => { e.stopPropagation(); selectUnit(u); });
+  el.addEventListener('pointerdown', e => { e.stopPropagation(); emitEv('select-unit', u); });
   u.labelEl = el; u.label = new CSS2DObject(el); scene.add(u.label);
   u.route = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color:0x5eead4, transparent:true, opacity:0.75 }));
   u.route.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(64 * 3), 3));
@@ -950,6 +751,7 @@ addUnit({ id:'H1', name:'Hazmat 1', kind:'hazmat', crew:3, x:-72, z:28, speed:4.
 addUnit({ id:'R1', name:'Rescue 1', kind:'rescue', crew:2, x:-72, z:36, speed:4.5, color:0xe6e9ee, desc:'Rescue & evacuation' });
 addUnit({ id:'D1', name:'Drone D1', kind:'drone', x:-64, z:14, speed:9, cruise:30, desc:'Quadcopter · thermal camera' });
 addUnit({ id:'D2', name:'Drone D2', kind:'drone', x:-64, z:22, speed:9, cruise:16, desc:'Quadcopter · gas sniffer' });
+addUnit({ id:'D3', name:'Scout D3', kind:'drone', indoor:true, x:-64, z:30, speed:6, cruise:10, desc:'Caged indoor drone · thermal + lidar' });
 const unitById = id => units.find(u => u.id === id);
 
 /* ================================================================
@@ -964,7 +766,7 @@ const tasks = [
   { id:'t6', title:'Cool W-1 east wall (exposure)', kind:'cool',    unit:'E1' },
 ].map(t => Object.assign({ status:'queued', progress:0 }, t));
 let taskSeq = 7;
-const DRONE_KINDS = ['recon', 'survey'];
+const DRONE_KINDS = ['recon', 'survey', 'scan'];
 const taskFire = t => fires.find(f => f.id === t.fireId) || primaryFire();
 function primaryFire(){ let best = null; for (const f of fires) if (f.active && (!best || f.Q > best.Q)) best = f; return best; }
 
@@ -983,6 +785,7 @@ function taskTarget(t, u){
     case 'contain': return { x:DRAIN.x - 3, z:DRAIN.z + 2 };
     case 'move': return { x:t.x, z:t.z };
   }
+  if (S.hooks.target && S.hooks.target[t.kind]) return S.hooks.target[t.kind](t, u);
   return { x:u.pos.x, z:u.pos.z };
 }
 function assignTask(t, u){
@@ -1023,7 +826,8 @@ function pullBack(u, why = 'manual'){
     u.path = findPath(u.pos.x, u.pos.z, u.dest.x, u.dest.z, true) || [u.dest];   // must be able to leave a hot cell
   }
   u.status = why === 'auto' ? 'Auto-withdrawn · exposure limit' : 'Pulling back to safe point';
-  if (why === 'auto') visorEvent = { html:`<b>THERMAL HAZARD · AUTO-WITHDRAW</b> · ${u.name} hit ${topReason(u) || LVL_NAME[u.level]} at ${cellNameAt(u.pos.x, u.pos.z)} · falling back to ${cellNameAt(u.dest.x, u.dest.z)}`, until:clockTime + 8 };
+  if (why === 'auto') setVisorEvent(`<b>AUTO-WITHDRAW</b> ${u.id} · ${topReason(u) || LVL_NAME[u.level]} at ${cellNameAt(u.pos.x, u.pos.z)} → ${cellNameAt(u.dest.x, u.dest.z)}`, 8,
+    `${u.name}, auto withdraw. ${spokenReason(u)}. Falling back to ${cellNameAt(u.dest.x, u.dest.z)}.`);
   addLog(`${u.id} ${why === 'auto' ? 'auto-withdrawn' : 'pulling back'} → ${cellNameAt(u.dest.x, u.dest.z)}`, why === 'auto' ? 'l2' : 'l1');
 }
 function onFireOut(f){
@@ -1035,7 +839,8 @@ function ignite(asset){
   const id = 'F' + (fires.length + 1);
   fires.push(new Fire({ id, name:asset.name, x:asset.fire.x, z:asset.fire.z, baseY:asset.fire.y, Qmax:asset.Qmax, R0:1.8, Rk:3.4, I:0.12, light:lightPool[fires.length] }));
   addLog(`FIRE SPREAD · ${asset.name} ignited (radiant exposure)`, 'l3');
-  visorEvent = { html:`<b>FIRE SPREAD</b> · ${asset.name} ignited at T+${Math.floor(sim.t / 60)} min · new exclusion zone`, until:clockTime + 10 };
+  setVisorEvent(`<b>FIRE SPREAD</b> ${asset.name} ignited · T+${tplus(sim.t)}`, 10, `Fire spread. ${asset.name} is burning.`);
+  emitEv('ignite', asset);
   for (const t of tasks) if (t.kind === 'cool' && !['done'].includes(t.status)){ t.status = 'cancelled'; }
   for (const u of units) if (u.task && u.task.kind === 'cool'){ u.mode = 'idle'; u.sprayOn = false; u.status = 'Holding · W-1 involved'; }
   tasks.push({ id:'t' + taskSeq++, title:`Foam attack on ${asset.short || asset.name}`, kind:'foam', unit:'E1', fireId:id, status:'queued', progress:0 });
@@ -1044,7 +849,21 @@ function ignite(asset){
 /* ================================================================
    Simulation step (sim seconds)
    ================================================================ */
-let visorEvent = null, clockTime = 0;
+function topReason(u){
+  const s = u.sens, parts = [], tArr = u.isDrone ? DRONE_T : LIM.T.v;
+  if (lvlOf(s.T, tArr)) parts.push(fmt.T(s.T));
+  if (lvlOf(s.q, LIM.q.v)) parts.push(fmt.q(s.q));
+  if (!u.isDrone && lvlOf(s.co, LIM.co.v)) parts.push(`CO ${fmt.co(s.co)}`);
+  if (!u.isDrone && lvlOf(s.co2, LIM.co2.v)) parts.push(`CO₂ ${fmt.co2(s.co2)}`);
+  return parts.join(' · ');
+}
+function spokenReason(u){
+  const s = u.sens, p = [];
+  if (lvlOf(s.T, u.isDrone ? DRONE_T : LIM.T.v)) p.push(`${Math.round(s.T)} degrees`);
+  if (lvlOf(s.q, LIM.q.v)) p.push(`heat flux ${s.q.toFixed(0)} kilowatts`);
+  if (!u.isDrone && lvlOf(s.co, LIM.co.v) >= 2) p.push(`carbon monoxide ${Math.round(s.co)} p p m`);
+  return p.join(', ') || LVL_NAME[u.level];
+}
 function step(dt){
   for (const f of fires) f.suppress = 0;
   for (const a of ASSETS) a.cooled = false;
@@ -1058,10 +877,16 @@ function step(dt){
     a.dose += Math.max(0, q - 7) * (a.cooled ? 0.2 : 1) * dt;
     if (a.dose >= a.doseMax && fires.length < 3) ignite(a);
   }
+  if (!S.rollCall && sim.t >= 150){
+    S.rollCall = true;
+    addLog('Roll call: 2 night-shift workers missing, last seen in W-1', 'l2', 'Roll call. Two night shift workers missing. Last seen in warehouse W 1.');
+    emitEv('missing', { building:'W1', count:2 });
+  }
+  for (const h of S.hooks.step) h(dt);
 }
 function readSensors(u, dt){
   const y = u.isDrone ? u.pos.y : 1.5;
-  const s = sample(u.pos.x, y, u.pos.z, {});
+  const s = (S.hooks.sense && S.hooks.sense(u)) || sample(u.pos.x, y, u.pos.z, {});
   const k = 1 - Math.exp(-dt / 1.2);   // sensor response time ≈ 1.2 s
   for (const key of ['T', 'q', 'co2', 'co', 'vis']){
     const noise = key === 'vis' ? 1 : 1 + (rand() - 0.5) * 0.03;
@@ -1075,7 +900,8 @@ function readSensors(u, dt){
   const lastLog = u.logged[u.level] ?? -Infinity;
   if (u.level > prev && u.level >= 2 && sim.t - lastLog >= 60){
     u.logged[u.level] = sim.t;
-    addLog(`${u.id} ${LVL_NAME[u.level].toLowerCase()}: ${Math.round(u.sens.T)} °C, ${u.sens.q.toFixed(1)} kW/m²`, 'l' + u.level);
+    addLog(`${u.id} ${LVL_NAME[u.level].toLowerCase()}: ${Math.round(u.sens.T)} °C, ${u.sens.q.toFixed(1)} kW/m²`, 'l' + u.level,
+      u.level === 2 ? `${u.name}, thermal warning. ${spokenReason(u)}.` : null);
   }
   if (u.level >= 3 && sim.autoWithdraw && u.mode !== 'pullback') pullBack(u, 'auto');
 }
@@ -1108,13 +934,15 @@ function groundUpdate(u, dt){
     u.targetHeading = Math.atan2(W1.ign.x - u.pos.x, W1.ign.z - u.pos.z);
     t.progress = 1 - W1.dose / W1.doseMax; u.status = 'Cooling W-1 east wall';
   } else if (t.kind === 'evac'){
-    t.evac = Math.min(18, t.evac + 0.25 * dt); t.progress = t.evac / 18 * 0.8;
+    t.evac = Math.min(17, t.evac + 0.25 * dt); t.progress = t.evac / 18 * 0.8;
     u.status = `Evacuating admin · ${Math.floor(t.evac)}/18 out`;
-    if (t.evac >= 18){ t.phase = 1; u.mode = 'enroute'; u.dest = MUSTER; u.path = findPath(u.pos.x, u.pos.z, MUSTER.x, MUSTER.z); u.status = 'Escorting staff to muster point'; addLog('Admin block evacuated (18 staff)', 'ok'); }
+    if (t.evac >= 17){ t.phase = 1; u.mode = 'enroute'; u.dest = MUSTER; u.path = findPath(u.pos.x, u.pos.z, MUSTER.x, MUSTER.z); u.status = 'Escorting staff to muster point';
+      addLog('Admin roll call: 17 of 18 out, 1 missing', 'l2', 'Rescue 1. Admin roll call, seventeen of eighteen out. One person missing.');
+      emitEv('missing', { building:'A1', count:1 }); }
   } else if (t.kind === 'contain'){
     t.progress = Math.min(1, t.progress + dt / 120); u.status = `Placing drain seal · ${Math.round(t.progress * 100)} %`;
     if (t.progress >= 1){ t.status = 'done'; u.mode = 'idle'; u.status = 'Drain sealed · standing by'; addLog('Drain sealed, run-off contained', 'ok'); }
-  }
+  } else if (S.hooks.ground[t.kind]) S.hooks.ground[t.kind](u, t, dt);
 }
 function arrive(u){
   const t = u.task;
@@ -1123,10 +951,12 @@ function arrive(u){
   if (t.kind === 'move'){ t.status = 'done'; t.progress = 1; u.mode = 'idle'; u.status = `Holding at ${cellNameAt(u.pos.x, u.pos.z)}`; return; }
   if (t.kind === 'evac' && t.phase === 1){ t.status = 'done'; t.progress = 1; u.mode = 'idle'; u.task = null; u.status = 'At muster point'; return; }
   t.status = 'working'; u.mode = 'working';
+  if (S.hooks.arrive[t.kind]) S.hooks.arrive[t.kind](u, t);
 }
 function droneUpdate(u, dt){
   let tx = u.home.x, tz = u.home.z, ty = 0;
   const t = u.task, f = primaryFire();
+  if (t && S.hooks.drone[t.kind] && u.mode !== 'pullback' && !['done', 'cancelled', 'withdrawn', 'queued'].includes(t.status)) return S.hooks.drone[t.kind](u, t, dt);
   if (u.mode === 'pullback'){ tx = u.dest.x; tz = u.dest.z; ty = u.cruise; }
   else if (t && !['done', 'cancelled', 'withdrawn', 'queued'].includes(t.status)){
     if (t.kind === 'recon'){
@@ -1155,9 +985,8 @@ function droneUpdate(u, dt){
 /* ================================================================
    Risk sampling, nav costs, rerouting
    ================================================================ */
-let redCells = 0;
 function updateRisk(){
-  redCells = 0;
+  let redCells = 0;
   const s = {};
   for (const c of cells){
     let T = 0, q = 0, co2 = 0, co = 0, vis = 2000;
@@ -1172,6 +1001,7 @@ function updateRisk(){
     riskData[c.i * 4] = c.level * 85; riskData[c.i * 4 + 3] = 255;
   }
   riskTex.needsUpdate = true;
+  S.redCells = redCells;
   for (let n = 0; n < NAV * NAV; n++){
     if (nav.blocked[n]) continue;
     const p = navCenter(n); sample(p.x, 1.5, p.z, s);
@@ -1189,387 +1019,17 @@ function reroute(){
   }
 }
 
-/* ================================================================
-   Picking & interaction
-   ================================================================ */
-let selUnit = null, selCell = -1, moveFor = null;
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-let down = null;
-renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
-renderer.domElement.addEventListener('pointerup', e => {
-  if (!down) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]); down = null; if (moved > 6) return;
-  const rect = renderer.domElement.getBoundingClientRect();
-  ndc.set((e.clientX - rect.left) / rect.width * 2 - 1, -(e.clientY - rect.top) / rect.height * 2 + 1);
-  ray.setFromCamera(ndc, camera);
-  if (!moveFor){ const h = ray.intersectObjects(unitHits, false); if (h.length){ selectUnit(h[0].object.userData.unit); return; } }
-  const p = new THREE.Vector3();
-  if (ray.ray.intersectPlane(groundPlane, p) && Math.abs(p.x) < HALF && Math.abs(p.z) < HALF){
-    if (moveFor){ moveUnit(moveFor, p.x, p.z); setMoveMode(null); }
-    else selectCell(cellOf(p.x, p.z));
-  }
-});
-function selectUnit(u){ selUnit = u; renderInspector(true); renderTeams(); }
-function selectCell([c, r]){ selCell = r * CELLS + c; overlayMat.uniforms.uSel.value.set(c, r); renderWhy(); }
-function setMoveMode(u){
-  moveFor = u; const h = document.getElementById('hint');
-  h.textContent = u ? `Tap the map to send ${u.id} · Esc to cancel` : ''; h.classList.toggle('on', !!u);
-}
-addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
-  if (e.key === 'Escape') setMoveMode(null);
-  if (e.key === ' '){ e.preventDefault(); togglePlay(); }
-});
 
-/* ================================================================
-   UI rendering
-   ================================================================ */
-const $ = id => document.getElementById(id);
-const fmt = {
-  T: v => `${Math.round(v)} °C`, q: v => `${v < 10 ? v.toFixed(1) : Math.round(v)} kW/m²`,
-  co2: v => `${Math.round(v).toLocaleString('en-US')} ppm`, co: v => `${Math.round(v).toLocaleString('en-US')} ppm`,
-  vis: v => v >= 1000 ? '> 1 km' : `${v < 10 ? v.toFixed(1) : Math.round(v)} m`,
+S.hooks.target = {};
+export {
+  THREE, CSS2DObject, S, bus, emitEv, onEv, addLog, setVisorEvent, fmt, tplus, topReason, spokenReason,
+  HALF, CELLS, CELL, NAV, NAVC, COLS, clamp, lerp, rand, noise1, LIM, DRONE_T, LVL_NAME, lvlOf,
+  sim, WV, updateWind, COMPASS, compass, cellName, cellOf, cellNameAt, cellCenter,
+  stage, renderer, labelRenderer, scene, camera, controls, composer, bloom, uScale, uTime, lightPool, moon,
+  ASSETS, W1, DRUM, DRAIN, label3D, makeLayer, emit, stepLayer, pMat, curl, C, SPRAY_FS,
+  fires, Fire, sample, fieldLevel, cells, overlayMat, nav, navIdx, navCenter, findPath, freePoint, nearestFree,
+  units, unitHits, unitById, STAGING, MUSTER, ADMIN_DOOR, LVL_COLORS,
+  tasks, DRONE_KINDS, taskFire, primaryFire, taskTarget, assignTask, moveUnit, pullBack, safePointFor, ignite,
+  step, updateRisk, reroute,
 };
-const tplus = t => `T+${String(Math.floor(t / 60)).padStart(2, '0')}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-const logs = [];
-function addLog(text, cls = ''){ logs.unshift({ t:sim.t, text, cls }); if (logs.length > 60) logs.pop(); logDirty = true; }
-let logDirty = true;
-function renderLog(){
-  if (!logDirty) return; logDirty = false;
-  $('logList').innerHTML = logs.map(l => `<div><span class="t num">${tplus(l.t)}</span><span class="${l.cls}">${l.text}</span></div>`).join('') || '<div class="sub">No events yet.</div>';
-}
-function renderTelemetry(){
-  const active = fires.filter(f => f.active);
-  const Qtot = active.reduce((s, f) => s + f.Q, 0);
-  $('telStats').innerHTML = `
-    <div class="stat"><div class="k">Elapsed</div><div class="v num">T+ ${Math.floor(sim.t / 60)} min</div></div>
-    <div class="stat"><div class="k">Red cells</div><div class="v num ${redCells ? 'red' : ''}">${redCells}</div></div>
-    <div class="stat"><div class="k">Heat release</div><div class="v num">${(Qtot / 1000).toFixed(0)} MW</div></div>
-    <div class="stat"><div class="k">Wind</div><div class="v num">${sim.windSpeed} m/s ${compass(sim.windFrom)}</div></div>`;
-  let html = fires.map(f => `
-    <div class="fire-row"><span>${f.name}</span><span class="meta num">${f.out ? 'out' : `${Math.round(f.I * 100)} % · ${f.H.toFixed(1)} m flame`}</span>
-    <div class="bar"><i style="width:${f.out ? 0 : Math.round(f.I * 100)}%"></i></div></div>`).join('');
-  if (!W1.burning){
-    const pct = Math.round(W1.dose / W1.doseMax * 100);
-    html += `<div class="fire-row"><span>W-1 ignition risk</span><span class="meta num">${pct} % · ${(W1.qNow || 0).toFixed(1)} kW/m²${W1.cooled ? ' · cooled' : ''}</span>
-      <div class="bar"><i style="width:${pct}%;background:linear-gradient(90deg,#fbbf24,#ef4444)"></i></div></div>`;
-  }
-  $('fireList').innerHTML = html;
-  const f = primaryFire();
-  if (f){
-    const c = f.center(), rx = Math.sqrt(Math.max(0, 0.3 * f.Q / (4 * Math.PI * 4.7) - (c.y - 1.5) ** 2)), rc = Math.sqrt(Math.max(0, 0.3 * f.Q / (4 * Math.PI * 1.6) - (c.y - 1.5) ** 2));
-    $('zoneText').innerHTML = `Zone drawn around ${f.name}: <span style="color:#fca5a5">exclusion ring</span> at 4.7 kW/m² (≈${Math.round(rx)} m), <span style="color:#fde68a">caution ring</span> at 1.6 kW/m² (≈${Math.round(rc)} m). Approach from the ${compass(sim.windFrom)}, upwind.`;
-  } else $('zoneText').textContent = 'No active fire. Zone cleared.';
-}
-function renderWhy(){
-  if (selCell < 0){ $('whyBody').innerHTML = 'Select a cell on the map.'; return; }
-  const c = cells[selCell];
-  let html = `<div class="why-title">Cell ${c.name} <span class="pill p${c.level}">${LVL_NAME[c.level]}</span></div>`;
-  const items = [];
-  if (c.burning) items.push('Active fire inside this cell.');
-  for (const k of ['q', 'T', 'co', 'co2']){
-    const L = LIM[k], lv = lvlOf(c[k], L.v);
-    if (lv > 0) items.push(`${L.label} <b class="num">${fmt[k](c[k])}</b>, above ${L.v[lv - 1].toLocaleString('en-US')} ${L.unit} (${L.why[lv - 1]}).`);
-  }
-  if (c.vis < 30) items.push(`Visibility about <b class="num">${fmt.vis(c.vis)}</b> in smoke.`);
-  const f = fires.filter(f => f.active).sort((a, b) => Math.hypot(a.x - c.cx, a.z - c.cz) - Math.hypot(b.x - c.cx, b.z - c.cz))[0];
-  if (items.length){
-    html += `<ul>${items.map(i => `<li>${i}</li>`).join('')}</ul>`;
-  } else html += `<div class="sub" style="margin:4px 0 8px">Every reading is inside the safe envelope: ${fmt.T(c.T)}, ${fmt.q(c.q)}, CO ${fmt.co(c.co)}.</div>`;
-  if (f){
-    const dx = c.cx - f.x, dz = c.cz - f.z, d = Math.hypot(dx, dz), cos = d > 0.1 ? (dx * WV.x + dz * WV.z) / d : 0;
-    const rel = cos > 0.5 ? 'downwind' : cos < -0.5 ? 'upwind' : 'crosswind';
-    html += `<div class="cause">Cause: ${Math.round(d)} m ${rel} of ${f.name} (${(f.Q / 1000).toFixed(0)} MW, ${f.H.toFixed(1)} m flames). Wind ${sim.windSpeed} m/s from ${compass(sim.windFrom)}.</div>`;
-  }
-  if (c.assets.length) html += `<div class="cause">In this cell: ${c.assets.map(a => a.name + (a.desc ? ` (${a.desc})` : '')).join(', ')}.</div>`;
-  const advice = c.level >= 3 ? 'No entry. Routing treats this cell as blocked; units inside are withdrawn automatically.'
-    : c.level === 2 ? 'Short exposure only, full PPE and SCBA. Routing avoids this cell unless it is the destination.'
-    : c.level === 1 ? 'Passable with PPE. Limit time here and monitor crews.' : 'Safe for staging and transit.';
-  html += `<div class="advice">${advice}</div>`;
-  $('whyBody').innerHTML = html;
-}
-const statusPill = s => ({ queued:'pd', 'en route':'pa', working:'p0', done:'pd', withdrawn:'p2', blocked:'p1', cancelled:'pd' }[s] || 'pd');
-function renderTasks(){
-  const list = tasks.filter(t => !(t.adhoc && t.status === 'done'));
-  $('taskList').innerHTML = list.map(t => {
-    const u = unitById(t.unit);
-    let act = '';
-    if (t.status === 'queued' || t.status === 'blocked') act = `<button class="btn sm primary" data-act="dispatch" data-id="${t.id}">Dispatch ${t.unit}</button>`;
-    else if (t.status === 'withdrawn') act = `<button class="btn sm" data-act="dispatch" data-id="${t.id}">Resume</button>`;
-    else act = `<span class="pill ${statusPill(t.status)}">${t.status}</span>`;
-    return `<div class="task"><div><div class="tt" data-act="sel" data-id="${t.unit}">${t.title}</div><div class="tu">${u ? u.name : t.unit} · ${t.status}</div></div>${act}
-      ${['working', 'en route', 'withdrawn'].includes(t.status) || t.progress > 0 ? `<div class="bar"><i style="width:${Math.round(clamp(t.progress, 0, 1) * 100)}%"></i></div>` : ''}</div>`;
-  }).join('');
-}
-function renderTeams(){
-  $('teamList').innerHTML = units.map(u => `
-    <div class="row ${selUnit === u ? 'sel' : ''}" data-act="sel" data-id="${u.id}">
-      <span class="d l${u.level}"></span><b>${u.id}</b><span>${u.name}</span><span class="rd num">${Math.round(u.sens.T)}°C · ${u.sens.q.toFixed(1)}</span>
-      <span class="st">${u.status}</span>
-    </div>`).join('');
-}
-let inspKey = '';
-function renderInspector(force){
-  const el = $('inspector');
-  if (!selUnit){ el.hidden = true; return; }
-  el.hidden = false;
-  const u = selUnit, s = u.sens;
-  const rows = (u.isDrone ? ['T', 'q', 'co2', 'co'] : ['T', 'q', 'co2', 'co']).map(k => {
-    const L = LIM[k], arr = (k === 'T' && u.isDrone) ? DRONE_T : L.v;
-    const gas = u.isDrone && (k === 'co2' || k === 'co');
-    const lv = gas ? 0 : lvlOf(s[k], arr);
-    const frac = k === 'co2' || k === 'co' ? Math.log10(Math.max(1, s[k])) / Math.log10(arr[2] * 1.5) : s[k] / (arr[2] * 1.15);
-    const col = ['var(--safe)', 'var(--adv)', 'var(--warn)', 'var(--crit)'][lv];
-    return `<div class="sens"><span class="k">${L.label}</span><span class="bar"><i style="width:${Math.round(clamp(frac, 0.02, 1) * 100)}%;background:${col}"></i></span><span class="v num" style="color:${lv ? col : 'inherit'}">${fmt[k](s[k])}</span>
-      <span class="lim">${gas ? 'measured, no airframe limit' : `limits ${arr.map(v => v.toLocaleString('en-US')).join(' / ')} ${L.unit}`}</span></div>`;
-  }).join('');
-  const hist = u.hist, maxT = Math.max(100, ...hist.map(h => h.T));
-  const pts = hist.map((h, i) => `${(i / Math.max(1, hist.length - 1) * 100).toFixed(1)},${(32 - (h.T - 20) / (maxT - 20) * 30).toFixed(1)}`).join(' ');
-  const limY = (32 - (((u.isDrone ? DRONE_T : LIM.T.v)[1]) - 20) / (maxT - 20) * 30).toFixed(1);
-  const body = `
-    <div class="sens"><span class="k">Visibility</span><span></span><span class="v num">${fmt.vis(s.vis)}</span></div>
-    ${rows}
-    <svg class="spark" viewBox="0 0 100 34" preserveAspectRatio="none" aria-label="Temperature, last 40 seconds">
-      <line x1="0" x2="100" y1="${limY}" y2="${limY}" stroke="#f87171" stroke-width="0.6" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/>
-      <polyline points="${pts}" fill="none" stroke="#5eead4" stroke-width="1.6" vector-effect="non-scaling-stroke"/>
-    </svg>
-    <div class="sub num" style="font-size:11px">Air temp, last 40 s · peak ${Math.round(u.peakT)} °C</div>`;
-  const key = `${u.id}|${u.mode}|${u.task ? u.task.id + u.task.status : ''}|${tasks.length}|${tasks.map(t => t.status).join()}`;
-  if (force || key !== inspKey || !$('inspBody')){
-    inspKey = key;
-    const avail = tasks.filter(t => !['done', 'cancelled'].includes(t.status) && t.kind !== 'move' && (u.isDrone ? DRONE_KINDS.includes(t.kind) : !DRONE_KINDS.includes(t.kind)) && t !== u.task);
-    el.innerHTML = `
-      <h2><span>${u.name}</span><button class="x" data-act="close" aria-label="Close">×</button></h2>
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span class="sub">${u.desc}${u.crew ? ` · crew ${u.crew}` : ''}</span><span class="pill p${u.level}" id="inspLvl">${LVL_NAME[u.level]}</span></div>
-      <div class="sub" id="inspStatus" style="color:var(--text);margin-top:4px">${u.status}</div>
-      <div id="inspBody"></div>
-      <div class="insp-actions">
-        <button class="btn sm primary" data-act="move" data-id="${u.id}">Move (tap map)</button>
-        <button class="btn sm danger" data-act="pull" data-id="${u.id}">Pull back</button>
-        ${avail.map(t => `<button class="btn sm" data-act="assign" data-id="${u.id}" data-task="${t.id}">${t.title}</button>`).join('')}
-      </div>`;
-  }
-  $('inspBody').innerHTML = body;
-  const lvl = $('inspLvl'); lvl.className = `pill p${u.level}`; lvl.textContent = LVL_NAME[u.level];
-  $('inspStatus').textContent = u.status;
-}
-function topReason(u){
-  const s = u.sens, parts = [];
-  const tArr = u.isDrone ? DRONE_T : LIM.T.v;
-  if (lvlOf(s.T, tArr)) parts.push(fmt.T(s.T));
-  if (lvlOf(s.q, LIM.q.v)) parts.push(fmt.q(s.q));
-  if (!u.isDrone && lvlOf(s.co, LIM.co.v)) parts.push(`CO ${fmt.co(s.co)}`);
-  if (!u.isDrone && lvlOf(s.co2, LIM.co2.v)) parts.push(`CO₂ ${fmt.co2(s.co2)}`);
-  return parts.join(' · ');
-}
-function renderVisor(){
-  const alerts = units.filter(u => u.level > 0).sort((a, b) => b.level - a.level || b.sens.q - a.sens.q);
-  const top = alerts[0], ev = visorEvent && clockTime < visorEvent.until ? visorEvent : null;
-  let lvl = 0, html, btn = null;
-  if (top && top.level >= 2){
-    lvl = top.level;
-    html = `<b>${lvl === 3 ? 'THERMAL HAZARD' : 'THERMAL WARNING'}</b> · ${top.name} · ${topReason(top)}${top.mode === 'pullback' ? ' · withdrawing' : ' · pull back advised'}`;
-    if (top.mode !== 'pullback') btn = { id:top.id, label:`Pull back ${top.id}` };
-  } else if (ev){ lvl = 3; html = ev.html; }
-  else if (top){ lvl = 1; html = `<b>Visor advisory</b> · ${top.name} nearing limits · ${topReason(top)}`; }
-  else html = `<b>Visor quiet</b> · all ${units.length} units inside the safe envelope`;
-  if (alerts.length > 1) html += `<span class="more">+${alerts.length - 1} more</span>`;
-  $('visor').className = 'l' + lvl;
-  $('visorText').innerHTML = html;
-  const b = $('visorBtn'); b.hidden = !btn; if (btn){ b.textContent = btn.label; b.dataset.id = btn.id; }
-  $('vignette').classList.toggle('on', lvl >= 2);
-}
-function renderAll(){ renderTelemetry(); renderTasks(); renderTeams(); renderInspector(false); renderVisor(); renderLog(); }
-
-/* ================================================================
-   Actions: buttons, chips, commands
-   ================================================================ */
-function doAction(el){
-  const act = el.dataset.act, id = el.dataset.id;
-  if (act === 'sel'){ const u = unitById(id); if (u) selectUnit(u); }
-  else if (act === 'close'){ selUnit = null; renderInspector(); renderTeams(); }
-  else if (act === 'move'){ setMoveMode(unitById(id)); }
-  else if (act === 'pull' || act === 'visor'){ const u = unitById(id); if (u) pullBack(u); }
-  else if (act === 'assign'){ const t = tasks.find(t => t.id === el.dataset.task); const u = unitById(id); if (t && u) assignTask(t, u); }
-  else if (act === 'dispatch'){ const t = tasks.find(t => t.id === id); const u = t && unitById(t.unit); if (u) assignTask(t, u); }
-  else if (act === 'play') togglePlay();
-  else if (act === 'speed'){ sim.speed = +el.dataset.v; document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', b === el)); }
-  else if (act === 'reset') location.reload();
-  renderAll();
-}
-// pointerdown so buttons in live-updating lists never lose a click to a re-render
-document.addEventListener('pointerdown', e => { const el = e.target.closest('[data-act]'); if (el && e.button === 0){ e.preventDefault(); doAction(el); } });
-document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-act]')){ e.preventDefault(); doAction(e.target); } });
-function togglePlay(){ sim.paused = !sim.paused; $('playBtn').textContent = sim.paused ? 'Play' : 'Pause'; }
-$('windDir').addEventListener('change', e => { sim.windFrom = +e.target.value; updateWind(); addLog(`Wind now from ${compass(sim.windFrom)}`); });
-$('windSpd').addEventListener('input', e => { sim.windSpeed = +e.target.value; $('windSpdV').textContent = `${sim.windSpeed} m/s`; });
-$('growth').addEventListener('input', e => { sim.growth = +e.target.value; $('growthV').textContent = `${sim.growth.toFixed(1)}×`; });
-$('autoW').addEventListener('change', e => { sim.autoWithdraw = e.target.checked; });
-document.querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => runCommand(c.dataset.cmd)));
-$('cmdForm').addEventListener('submit', e => { e.preventDefault(); runCommand($('cmdInput').value); $('cmdInput').value = ''; });
-
-function parseUnit(s){
-  const m = s.match(/\b(?:(e|engine)\s*([12])|(h|hazmat)\s*1|(r|rescue)\s*1|(?:d|drone)\s*d?([12]))\b/);
-  if (!m) return null;
-  if (m[2]) return unitById('E' + m[2]);
-  if (m[3]) return unitById('H1');
-  if (m[4]) return unitById('R1');
-  if (m[5]) return unitById('D' + m[5]);
-  return null;
-}
-function runCommand(raw){
-  const s = (raw || '').toLowerCase().trim(); if (!s) return;
-  const fb = msg => { $('cmdFeedback').textContent = msg; };
-  const u = parseUnit(s);
-  const tail = s.includes(' to ') ? s.slice(s.lastIndexOf(' to ') + 4) : s.replace(/\b(?:e|engine|h|hazmat|r|rescue|d|drone)\s*d?[12]\b/, ' ');
-  const cellM = tail.match(/\b([a-j])\s*(10|[1-9])\b(?!\s*m)/);
-  let m;
-  if (/^(pause|stop)\b/.test(s)){ if (!sim.paused) togglePlay(); return fb('Simulation paused.'); }
-  if (/^(play|resume|go)\b/.test(s)){ if (sim.paused) togglePlay(); return fb('Simulation running.'); }
-  if ((m = s.match(/wind\s+(?:from\s+)?(n|ne|e|se|s|sw|w|nw)\b(?:\D+(\d+(?:\.\d+)?))?/))){
-    sim.windFrom = COMPASS.indexOf(m[1].toUpperCase()) * 45; updateWind(); $('windDir').value = sim.windFrom;
-    if (m[2]){ sim.windSpeed = clamp(+m[2], 0, 12); $('windSpd').value = sim.windSpeed; $('windSpdV').textContent = `${sim.windSpeed} m/s`; }
-    addLog(`Wind set: from ${compass(sim.windFrom)} at ${sim.windSpeed} m/s`); return fb('Wind updated.');
-  }
-  if (/pull ?back|withdraw|retreat/.test(s)){
-    const list = u ? [u] : units.filter(x => /red|all/.test(s) ? (/red/.test(s) ? x.level >= 2 || nav.level[navIdx(x.pos.x, x.pos.z)] >= 2 : true) : x.level >= 2);
-    if (!list.length) return fb('No units in red cells.');
-    list.forEach(x => pullBack(x)); return fb(`Pulling back ${list.map(x => x.id).join(', ')}.`);
-  }
-  if (/why|explain/.test(s) && cellM){ selectCell([cellM[1].charCodeAt(0) - 97, +cellM[2] - 1]); return fb(`Showing risk for ${cellM[1].toUpperCase()}${cellM[2]}.`); }
-  if (/(send|move|go|fly)\b/.test(s) && u && cellM){
-    const c = cellM[1].charCodeAt(0) - 97, r = +cellM[2] - 1;
-    moveUnit(u, -HALF + c * CELL + CELL / 2, -HALF + r * CELL + CELL / 2); selectUnit(u);
-    return fb(`${u.id} routing to ${cellM[1].toUpperCase()}${cellM[2]}.`);
-  }
-  // prefer the open task planned for this unit, then the one nobody is working yet
-  const findTask = (kind, unitId) => {
-    const open = tasks.filter(t => t.kind === kind && !['done', 'cancelled'].includes(t.status));
-    return open.find(t => t.unit === unitId && t.status !== 'working') || open.find(t => t.status === 'queued') || open[0];
-  };
-  const kinds = [[/foam|attack|extinguish|knock/, 'foam', 'E2'], [/cool/, 'cool', 'E1'], [/recon|scout|thermal/, 'recon', 'D1'], [/gas|survey|sniff/, 'survey', 'D2'], [/evac/, 'evac', 'R1'], [/drain|contain|run-?off/, 'contain', 'H1']];
-  for (const [re, kind, def] of kinds){
-    if (!re.test(s)) continue;
-    const unit = u || unitById(def);
-    const t = findTask(kind, unit.id); if (!t) return fb(`No open ${kind} task.`);
-    if (unit.isDrone !== DRONE_KINDS.includes(kind)) return fb(`${unit.id} can't do that task.`);
-    assignTask(t, unit); selectUnit(unit); renderAll(); return fb(`${unit.id} assigned: ${t.title}.`);
-  }
-  if (u && /status|inspect|show/.test(s)){ selectUnit(u); return fb(`Inspecting ${u.id}.`); }
-  fb('Didn’t catch that. Try “send E2 to C4”, “foam E1”, “pull back all in red” or “wind from N 6”.');
-}
-// Voice input where the browser supports it
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SR){
-  const mic = $('micBtn'); mic.hidden = false;
-  mic.addEventListener('click', () => {
-    const r = new SR(); r.lang = 'en-US'; r.interimResults = false;
-    r.onresult = e => { const txt = e.results[0][0].transcript; $('cmdInput').value = txt; runCommand(txt); };
-    r.onend = () => { mic.textContent = 'Mic'; };
-    mic.textContent = '…'; r.start();
-  });
-}
-
-/* ================================================================
-   Boot + main loop
-   ================================================================ */
-fires.push(new Fire({ id:'F1', name:'Drum yard D-1', x:DRUM.x, z:DRUM.z, Qmax:50000, I:0.12, light:lightPool[0] }));
-for (const t of tasks) if (t.auto) assignTask(t, unitById(t.unit));
-addLog('Fire reported at drum yard D-1; drones and rescue dispatched', 'l1');
-updateRisk();
-
-function resize(){
-  const w = stage.clientWidth, h = stage.clientHeight;
-  renderer.setSize(w, h); composer.setSize(w, h); labelRenderer.setSize(w, h);
-  bloom.resolution.set(w, h);
-  camera.aspect = w / h; camera.updateProjectionMatrix();
-  uScale.value = renderer.getPixelRatio() * h / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-}
-new ResizeObserver(resize).observe(stage);
-resize();
-
-const clock = new THREE.Clock();
-let riskAcc = 0, routeAcc = 0, uiAcc = 0, histAcc = 0;
-const tmpV = new THREE.Vector3();
-function frame(){
-  const dt = Math.min(clock.getDelta(), 0.05);
-  clockTime += dt; uTime.value = clockTime;
-  if (!sim.paused){
-    let sdt = dt * sim.speed; sim.t += sdt;
-    while (sdt > 0){ const h = Math.min(sdt, 0.25); step(h); sdt -= h; }
-  }
-  for (const f of fires) f.visualStep(dt, clockTime);
-  // contour uniforms
-  const uf = overlayMat.uniforms.uFires.value;
-  for (let i = 0; i < 3; i++){ const f = fires[i]; if (f && f.Ieff > 0.01){ const c = f.center(); uf[i].set(c.x, c.z, f.Q, c.y - 1.5); } else uf[i].set(0, 0, 0, 0); }
-  // unit visuals
-  for (const u of units){
-    let dh = u.targetHeading - u.heading; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); u.heading += dh * Math.min(1, dt * 5);
-    u.mesh.position.copy(u.pos); u.mesh.rotation.y = u.heading;
-    if (u.isDrone){
-      u.mesh.position.y = u.pos.y + 0.6 + Math.sin(clockTime * 2 + u.home.z) * 0.15 * (u.pos.y > 1 ? 1 : 0);
-      for (const r of u.mesh.userData.rotors) r.rotation.y += dt * (u.pos.y > 0.2 ? 40 : 0);
-      const tp = u.tether.geometry.attributes.position; tp.setXYZ(0, u.pos.x, 0.1, u.pos.z); tp.setXYZ(1, u.pos.x, u.mesh.position.y, u.pos.z); tp.needsUpdate = true;
-    } else {
-      const on = u.mode === 'enroute' || u.mode === 'working' || u.mode === 'pullback';
-      const [lr, lb] = u.mesh.userData.lights; const ph = Math.floor(clockTime * 6) % 2;
-      lr.visible = on && ph === 0; lb.visible = on && ph === 1;
-    }
-    u.ring.position.set(u.pos.x, 0.12, u.pos.z);
-    u.ring.material.color.setHex(LVL_COLORS[u.level]);
-    u.ring.material.opacity = u.level >= 3 ? 0.55 + 0.4 * Math.sin(clockTime * 8) : 0.85;
-    const sc = selUnit === u ? 1.25 : 1; u.ring.scale.setScalar(sc);
-    u.hit.position.set(u.pos.x, (u.isDrone ? u.pos.y : 0) + 2, u.pos.z);
-    u.label.position.set(u.pos.x, (u.isDrone ? u.mesh.position.y : 3.2) + 3, u.pos.z);
-    // foam/water spray
-    if (u.spray){
-      const L = u.spray;
-      if (u.sprayOn){
-        tmpV.set(Math.sin(u.heading) * 1.5, 3.2, Math.cos(u.heading) * 1.5).add(u.pos);
-        emit(L, 110, dt, (i, j) => {
-          const T = 1.0 + rand() * 0.35; L.life[i] = T;
-          L.pos[j] = tmpV.x; L.pos[j + 1] = tmpV.y; L.pos[j + 2] = tmpV.z;
-          const tx = u.sprayTo.x + (rand() - 0.5) * 2.5, ty = u.sprayTo.y, tz = u.sprayTo.z + (rand() - 0.5) * 2.5;
-          L.vel[j] = (tx - tmpV.x) / T; L.vel[j + 1] = (ty - tmpV.y) / T + 4.9 * T; L.vel[j + 2] = (tz - tmpV.z) / T;
-          L.size[i] = 0.45 + rand() * 0.5;
-        });
-      }
-      stepLayer(L, dt, (i, a, j, P, V) => { V[j + 1] -= 9.8 * dt; P[j] += V[j] * dt; P[j + 1] = Math.max(0.1, P[j + 1] + V[j + 1] * dt); P[j + 2] += V[j + 2] * dt; });
-    }
-  }
-  obstacleLight.visible = Math.floor(clockTime * 1.2) % 2 === 0;
-
-  riskAcc += dt; routeAcc += dt; uiAcc += dt; histAcc += dt;
-  if (riskAcc > 0.5){ riskAcc = 0; updateRisk(); if (selCell >= 0) renderWhy(); }
-  if (routeAcc > 1){ routeAcc = 0; if (!sim.paused) reroute(); }
-  if (histAcc > 0.5){ histAcc = 0; if (!sim.paused) for (const u of units){ u.hist.push({ T:u.sens.T }); if (u.hist.length > 80) u.hist.shift(); } }
-  if (uiAcc > 0.25){
-    uiAcc = 0; renderAll();
-    for (const u of units){
-      const d = u.labelEl.firstElementChild; d.className = `d l${u.level}`;
-      u.labelEl.classList.toggle('sel', selUnit === u); u.labelEl.classList.toggle('hot', u.level >= 2);
-      u.labelEl.lastElementChild.textContent = u.level >= 2 ? `${Math.round(u.sens.T)}°C` : '';
-      // route line
-      const pa = u.route.geometry.attributes.position; let n = 0;
-      if (u.path && u.path.length && !u.isDrone){
-        pa.setXYZ(n++, u.pos.x, 0.3, u.pos.z);
-        for (const p of u.path){ if (n >= 64) break; pa.setXYZ(n++, p.x, 0.3, p.z); }
-      } else if (u.isDrone && (u.mode === 'enroute' || u.mode === 'pullback')){
-        const f = primaryFire(); const t = u.task;
-        const tgt = u.mode === 'pullback' ? u.dest : t && t.kind === 'move' ? t : t && f ? (t.kind === 'survey' ? { x:f.x + WV.x * 55, z:f.z + WV.z * 55 } : { x:f.x + Math.cos(u.orbitA) * 34, z:f.z + Math.sin(u.orbitA) * 34 }) : null;
-        if (tgt){ pa.setXYZ(n++, u.pos.x, 0.3, u.pos.z); pa.setXYZ(n++, tgt.x, 0.3, tgt.z); }
-      }
-      pa.needsUpdate = true; u.route.geometry.setDrawRange(0, n);
-      u.route.material.color.setHex(u.mode === 'pullback' ? 0xfbbf24 : 0x5eead4);
-    }
-  }
-  controls.update();
-  composer.render();
-  labelRenderer.render(scene, camera);
-  requestAnimationFrame(frame);
-}
-window.__a3tn = { camera, controls, bloom, lightPool, fires, units, sim, runCommand };   // debug handle
-renderAll();
-requestAnimationFrame(frame);
-</script>
-</body>
-</html>
+export const newTaskId = () => 't' + taskSeq++;

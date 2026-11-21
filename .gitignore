@@ -2,10 +2,22 @@
 *.pdf
 
 # Local tooling
-graft/
+/graft/
 .claude/
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Tool / training artifacts
+.ignore
+/yolo11n.pt
+ml/models/yolo_train.log

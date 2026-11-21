@@ -1,0 +1,10 @@
+{
+  "rollout_horizon_s": 360,
+  "test_floorplans": 200,
+  "smoke_index_MAE": 0.007051815718602964,
+  "temperature_MAE_C": 1.9415574774835127,
+  "temperature_MAE_hot_rooms_C": 3.24180697268576,
+  "params": 391106,
+  "train_trajectories": 3000,
+  "iters": 6000
+}

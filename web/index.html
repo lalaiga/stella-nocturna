@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A3TN Command</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+</head>
+<body>
+<div id="stage"></div>
+<div id="shade"></div>
+<div id="vignette"></div>
+
+<!-- loader -->
+<div id="loader">
+  <div class="lwrap">
+    <div class="lmark">A3TN</div>
+    <div class="lbar mono" id="lbar">[==--==++==--==++==--]</div>
+    <div class="lmsg mono" id="lmsg">linking drones</div>
+  </div>
+</div>
+
+<!-- top left: identity + clock -->
+<header class="corner tl">
+  <div class="wordmark">A3TN</div>
+  <div class="ln">// Command · Protection Civile</div>
+  <div class="ln">// Simulated incident · Gabès chemical site</div>
+  <div class="clockrow">
+    <span class="dim">T+</span><span id="clock" class="clock">00:00</span>
+    <button class="txt" id="playBtn" data-act="play"><span id="playLbl">pause</span><svg hidden><path id="playIcon"/></svg></button>
+    <span class="seg" id="speedSeg"><button data-act="speed" data-v="1">1×</button><button data-act="speed" data-v="5" class="on">5×</button><button data-act="speed" data-v="20">20×</button></span>
+  </div>
+</header>
+
+<!-- top right: Visor -->
+<section class="corner tr">
+  <div class="kicker">////// Visor</div>
+  <div id="visor" class="l0" role="status" aria-live="polite">
+    <i class="vbar" hidden></i><div id="visorText">Visor quiet</div>
+    <button id="visorBtn" class="txt hot" data-act="visor" hidden></button>
+  </div>
+  <div class="windrow">
+    <button class="txt" data-act="wind" title="Rotate wind">
+      <svg viewBox="0 0 24 24" id="windArrow"><path d="M12 3l5 9h-3.5v9h-3v-9H7z"/></svg><span id="windTxt">4 m/s SE</span>
+    </button>
+    <button class="txt" data-act="settings">settings</button>
+  </div>
+  <div id="settings" class="pop" hidden>
+    <label>Fire growth <input type="range" id="growth" min="0.5" max="2.5" step="0.1" value="1"><span id="growthV">1.0×</span></label>
+    <label>Wind speed <input type="range" id="windSpd" min="0" max="12" step="0.5" value="4"><span id="windSpdV">4 m/s</span></label>
+    <label class="chk"><input type="checkbox" id="liveWind" checked> Live wind · Gabès (Open-Meteo)</label>
+    <label class="chk"><input type="checkbox" id="autoW" checked> Auto-withdraw at critical</label>
+    <label class="chk"><input type="checkbox" id="voiceAlerts" checked> Speak alerts</label>
+    <button class="txt" data-act="reset">restart scenario</button>
+  </div>
+</section>
+
+<!-- left: units + incident + buildings -->
+<aside id="left" class="corner bl">
+  <section>
+    <div class="kicker">// 01 Units</div>
+    <div id="roster"></div>
+  </section>
+  <section>
+    <div class="kicker">// 02 Incident</div>
+    <div id="site"></div>
+  </section>
+  <section>
+    <div class="kicker">// 03 Buildings</div>
+    <div id="blds"></div>
+  </section>
+</aside>
+
+<!-- right: context card + log -->
+<aside id="right">
+  <section id="card"></section>
+  <section id="feed">
+    <button class="kicker txt" data-act="log">// 04 Log <span id="logState">[+]</span></button>
+    <div id="log" hidden></div>
+  </section>
+</aside>
+
+<div id="cam" hidden>
+  <div class="camhead"><span>// D1 camera</span><span id="camMeta"></span></div>
+  <canvas id="camCanvas" width="320" height="200"></canvas>
+</div>
+
+<footer id="timeline" hidden>
+  <div class="tl-plans" id="tlPlans"></div>
+  <button class="txt" data-act="tl-play"><span id="tlLbl">play</span><svg hidden><path id="tlIcon"/></svg></button>
+  <div class="tl-track" id="tlTrack">
+    <div class="tl-fill" id="tlFill"></div>
+    <div class="tl-ticks" id="tlTicks"></div>
+    <div class="tl-head" id="tlHead"></div>
+  </div>
+  <div class="tl-time"><span id="tlNow">+00:00</span><span class="dim"> / <span id="tlEnd">00:00</span></span></div>
+  <button class="txt hot" data-act="commit">commit plan</button>
+  <button class="txt" data-act="plans-close">close</button>
+</footer>
+
+<!-- bottom right: voice + sound -->
+<div id="voice" class="corner br">
+  <div id="bubble" hidden><div class="heard"></div><div class="reply"></div></div>
+  <form id="typeForm" hidden autocomplete="off"><input id="typeInput" placeholder="type to Visor…" aria-label="Type a command"></form>
+  <button id="ptt" aria-label="Hold to talk (or hold V)">
+    <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+  </button>
+  <div class="vmeta">
+    <span>hold <b>V</b> to talk</span>
+    <button class="txt" data-act="type">type</button>
+    <button class="txt" data-act="sound" id="soundBtn">sound: off</button>
+  </div>
+</div>
+
+<div id="hint"></div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

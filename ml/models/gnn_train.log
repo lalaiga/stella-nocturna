@@ -1,0 +1,23 @@
+generated 3000 train / 200 test trajectories in 124.7s
+iter 0 loss 4.81e-04 (1s)
+iter 500 loss 1.30e-04 (27s)
+iter 1000 loss 1.12e-04 (54s)
+iter 1500 loss 8.25e-05 (82s)
+iter 2000 loss 4.32e-05 (113s)
+iter 2500 loss 4.17e-05 (147s)
+iter 3000 loss 3.01e-05 (172s)
+iter 3500 loss 2.67e-05 (189s)
+iter 4000 loss 2.38e-05 (209s)
+iter 4500 loss 1.49e-05 (227s)
+iter 5000 loss 1.65e-05 (246s)
+iter 5500 loss 1.60e-05 (266s)
+{
+  "rollout_horizon_s": 360,
+  "test_floorplans": 200,
+  "smoke_index_MAE": 0.007051815718602964,
+  "temperature_MAE_C": 1.9415574774835127,
+  "temperature_MAE_hot_rooms_C": 3.24180697268576,
+  "params": 391106,
+  "train_trajectories": 3000,
+  "iters": 6000
+}
