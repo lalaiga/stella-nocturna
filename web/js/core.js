@@ -109,7 +109,7 @@ scene.add(moon);
 // Pool of fire lights (fixed light count => no shader recompiles when fire spreads)
 const lightPool = [0, 1, 2].map(i => {
   const L = new THREE.PointLight(0xff7a2e, 0, 100, 2);
-  if (i < 2){
+  if (i < 1){                       // only the primary fire light casts (cube) shadows
     L.castShadow = true;
     L.shadow.mapSize.set(1024, 1024);
     L.shadow.camera.near = 0.5; L.shadow.camera.far = 150;
@@ -255,8 +255,10 @@ flat(2.4, 2.4, DRAIN.x, DRAIN.z, 0x050607, 0.035);
 label3D('Drain', DRAIN.x, 1.5, DRAIN.z);
 label3D('Staging', -70, 1.5, 44, 'alabel'); label3D('Muster', -66, 1.5, 72, 'alabel');
 // Grid labels
-for (let c = 0; c < CELLS; c++) label3D(COLS[c], -HALF + c * CELL + CELL / 2, 0.5, -HALF - 4, 'glabel');
-for (let r = 0; r < CELLS; r++) label3D(String(r + 1), -HALF - 4, 0.5, -HALF + r * CELL + CELL / 2, 'glabel');
+const gridLabels = [];   // shown only while the grid is revealed
+for (let c = 0; c < CELLS; c++) gridLabels.push(label3D(COLS[c], -HALF + c * CELL + CELL / 2, 0.5, -HALF - 4, 'glabel'));
+for (let r = 0; r < CELLS; r++) gridLabels.push(label3D(String(r + 1), -HALF - 4, 0.5, -HALF + r * CELL + CELL / 2, 'glabel'));
+gridLabels.forEach(l => l.visible = false);
 
 /* ================================================================
    Particle system (CPU-simulated, GPU billboarded soft sprites)
@@ -564,11 +566,11 @@ const riskTex = new THREE.DataTexture(riskData, CELLS, CELLS, THREE.RGBAFormat);
 riskTex.magFilter = riskTex.minFilter = THREE.NearestFilter; riskTex.needsUpdate = true;
 const overlayMat = new THREE.ShaderMaterial({
   transparent:true, depthWrite:false,
-  uniforms:{ uRisk:{ value:riskTex }, uSel:{ value:new THREE.Vector2(-1, -1) }, uTime,
+  uniforms:{ uRisk:{ value:riskTex }, uSel:{ value:new THREE.Vector2(-1, -1) }, uGrid:{ value:0 }, uTime,
              uFires:{ value:[new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] } },
   vertexShader:`varying vec2 vW; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }`,
   fragmentShader:`
-    uniform sampler2D uRisk; uniform vec2 uSel; uniform float uTime; uniform vec4 uFires[3];
+    uniform sampler2D uRisk; uniform vec2 uSel; uniform float uGrid; uniform float uTime; uniform vec4 uFires[3];
     varying vec2 vW;
     vec4 over(vec4 d, vec3 c, float a){ float oa = a + d.a * (1.0 - a); vec3 oc = oa > 0.0 ? (c * a + d.rgb * d.a * (1.0 - a)) / oa : c; return vec4(oc, oa); }
     void main(){
@@ -577,10 +579,12 @@ const overlayMat = new THREE.ShaderMaterial({
       vec3 cS = vec3(0.55, 0.62, 0.72), cA = vec3(0.91, 0.69, 0.29), cW = vec3(1.0, 0.30, 0.24);
       vec3 col = lvl < 0.5 ? cS : (lvl < 1.5 ? cA : cW);
       float a = lvl < 0.5 ? 0.0 : (lvl < 1.5 ? 0.13 : (lvl < 2.5 ? 0.22 : 0.30 + 0.07 * sin(uTime * 4.0)));
-      vec4 o = vec4(col, a);
+      // the grid is hidden by default; clicking a cell reveals it, fading out around that cell
+      float reveal = uGrid * (1.0 - smoothstep(18.0, 56.0, distance(vW, (uSel + 0.5) * 16.0 - 80.0)));
+      vec4 o = vec4(col, a * reveal);
       vec2 f = fract(g), dd = min(f, 1.0 - f), fw = fwidth(g);
       float px = min(dd.x / fw.x, dd.y / fw.y);
-      o = over(o, vec3(0.62, 0.68, 0.78), (1.0 - smoothstep(0.0, 1.2, px)) * 0.10);
+      o = over(o, vec3(0.62, 0.68, 0.78), (1.0 - smoothstep(0.0, 1.2, px)) * 0.16 * reveal);
       // radiant heat-flux contours: exclusion (4.7 kW/m²) and caution (1.6 kW/m²)
       float q = 0.0;
       for (int i = 0; i < 3; i++){ vec4 F = uFires[i]; if (F.z > 0.0){ vec2 d = vW - F.xy; q += 0.3 * F.z / (12.566 * max(dot(d, d) + F.w * F.w, 1.0)); } }
@@ -594,7 +598,7 @@ const overlayMat = new THREE.ShaderMaterial({
         o = over(o, vec3(1.0, 0.75, 0.25), c2 * dash * 0.85);
         o = over(o, vec3(1.0, 0.25, 0.2), c1 * 0.95);
       }
-      if (cell == uSel){ o = over(o, vec3(1.0), 0.05); o = over(o, vec3(0.9, 1.0, 1.0), (1.0 - smoothstep(1.5, 3.0, px)) * 0.95); }
+      if (cell == uSel){ o = over(o, vec3(1.0), 0.05 * uGrid); o = over(o, vec3(0.9, 1.0, 1.0), (1.0 - smoothstep(1.5, 3.0, px)) * 0.95 * uGrid); }
       gl_FragColor = o;
     }`,
 });
@@ -688,17 +692,44 @@ function findPath(sx, sz, tx, tz, allowHot = false){
 const units = [];
 const unitHits = [];
 const STAGING = { x:-70, z:26 }, MUSTER = { x:-66, z:66 }, ADMIN_DOOR = { x:-48, z:40 };
-function vehicleMesh(color){
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.3, 6.6), new THREE.MeshStandardMaterial({ color, roughness:0.5, metalness:0.25 }));
-  body.position.y = 1.6; body.castShadow = body.receiveShadow = true; g.add(body);
-  const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.2, 1.5), new THREE.MeshStandardMaterial({ color:0x1b2230, roughness:0.2, metalness:0.6 }));
-  cab.position.set(0, 2.3, 2.6); g.add(cab);
-  const wm = new THREE.MeshStandardMaterial({ color:0x111111, roughness:0.9 });
-  for (const [x, z] of [[-1.2, 2], [1.2, 2], [-1.2, -2], [1.2, -2]]){ const w = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 12), wm); w.rotation.z = Math.PI / 2; w.position.set(x, 0.5, z); g.add(w); }
-  const lr = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 0.4), new THREE.MeshBasicMaterial({ color:0xff2030 })); lr.position.set(-0.5, 2.95, 2.6); g.add(lr);
-  const lb = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.25, 0.4), new THREE.MeshBasicMaterial({ color:0x2050ff })); lb.position.set(0.5, 2.95, 2.6); g.add(lb);
-  g.userData.lights = [lr, lb];
+function vehicleMesh(color, kind = 'engine'){
+  const g = new THREE.Group(), body = new THREE.Group(); g.add(body);
+  const paint = new THREE.MeshStandardMaterial({ color, roughness:0.38, metalness:0.35 });
+  const dark = new THREE.MeshStandardMaterial({ color:0x15181d, roughness:0.8, metalness:0.3 });
+  const chrome = new THREE.MeshStandardMaterial({ color:0xb9bec6, roughness:0.25, metalness:0.9 });
+  const glass = new THREE.MeshStandardMaterial({ color:0x0d1624, roughness:0.08, metalness:0.9, emissive:0x1a2a40, emissiveIntensity:0.35 });
+  const add = (geo, m, x, y, z, parent = body) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); return o; };
+  add(new THREE.BoxGeometry(2.3, 0.35, 6.9), dark, 0, 0.75, 0);                    // chassis
+  add(new THREE.BoxGeometry(2.5, 2.1, 4.6), paint, 0, 1.95, -0.95);               // body / lockers
+  add(new THREE.BoxGeometry(2.5, 1.9, 1.9), paint, 0, 1.85, 2.45);                // cab
+  add(new THREE.BoxGeometry(2.36, 0.85, 0.06), glass, 0, 2.3, 3.42);              // windscreen
+  for (const sx of [-1.26, 1.26]){
+    add(new THREE.BoxGeometry(0.04, 0.6, 1.2), glass, sx, 2.3, 2.5);             // side windows
+    add(new THREE.BoxGeometry(0.03, 0.14, 6.6), new THREE.MeshStandardMaterial({ color:0xe8e04a, emissive:0xe8e04a, emissiveIntensity:0.25, roughness:0.4 }), sx * 1.005, 1.25, 0.1);  // reflective stripe
+    for (const z of [-2.6, -1.1, 0.4]) add(new THREE.BoxGeometry(0.03, 1.4, 1.2), dark, sx * 1.01, 2.0, z);  // locker doors
+  }
+  add(new THREE.BoxGeometry(2.4, 0.3, 0.2), chrome, 0, 0.95, 3.5);                // bumper
+  for (const sx of [-0.85, 0.85]) add(new THREE.BoxGeometry(0.35, 0.18, 0.05), new THREE.MeshBasicMaterial({ color:0xfff4d6 }), sx, 1.25, 3.46);  // headlights
+  if (kind === 'engine'){
+    for (const sx of [-0.45, 0.45]) add(new THREE.BoxGeometry(0.08, 0.08, 5.2), chrome, sx, 3.15, -0.9);   // ladder rails
+    for (let z = -3.2; z <= 1.4; z += 0.5) add(new THREE.BoxGeometry(0.9, 0.05, 0.05), chrome, 0, 3.15, z);
+    add(new THREE.CylinderGeometry(0.45, 0.45, 0.5, 18), dark, 0, 3.15, -3.1).rotation.z = Math.PI / 2;   // hose reel
+  } else {
+    add(new THREE.BoxGeometry(2.0, 0.3, 3.2), dark, 0, 3.15, -1.0);               // roof equipment box
+  }
+  const wheels = [];
+  const tire = new THREE.CylinderGeometry(0.55, 0.55, 0.42, 20), hub = new THREE.CylinderGeometry(0.28, 0.28, 0.44, 12);
+  for (const [x, z] of [[-1.15, 2.3], [1.15, 2.3], [-1.15, -1.4], [1.15, -1.4], [-1.15, -2.6], [1.15, -2.6]]){
+    const w = new THREE.Group(); w.position.set(x, 0.55, z); g.add(w);
+    const t = new THREE.Mesh(tire, new THREE.MeshStandardMaterial({ color:0x0c0c0d, roughness:0.95 })); t.rotation.z = Math.PI / 2; t.castShadow = true; w.add(t);
+    const h = new THREE.Mesh(hub, chrome); h.rotation.z = Math.PI / 2; w.add(h);
+    wheels.push(w);
+  }
+  const lr = add(new THREE.BoxGeometry(0.75, 0.22, 0.38), new THREE.MeshBasicMaterial({ color:0xff2030 }), -0.45, 2.92, 2.4);
+  const lb = add(new THREE.BoxGeometry(0.75, 0.22, 0.38), new THREE.MeshBasicMaterial({ color:0x2050ff }), 0.45, 2.92, 2.4);
+  // only large parts cast shadows: small details would multiply the shadow-map draw calls
+  g.traverse(o => { if (o.isMesh){ o.geometry.computeBoundingSphere(); o.castShadow = o.geometry.boundingSphere.radius > 1.2; } });
+  g.userData = { lights:[lr, lb], wheels, body };
   return g;
 }
 function droneMesh(){
@@ -724,7 +755,7 @@ function addUnit(o){
   u.pos = new THREE.Vector3(o.x, 0, o.z);
   u.home = { x:o.x, z:o.z };
   u.isDrone = u.kind === 'drone';
-  u.mesh = u.isDrone ? droneMesh() : vehicleMesh(u.color);
+  u.mesh = u.isDrone ? droneMesh() : vehicleMesh(u.color, u.kind);
   scene.add(u.mesh);
   u.ring = new THREE.Mesh(new THREE.RingGeometry(3.6, 3.85, 48), new THREE.MeshBasicMaterial({ color:LVL_COLORS[0], transparent:true, opacity:0.5, depthWrite:false }));
   u.ring.rotation.x = -Math.PI / 2; u.ring.renderOrder = 4; scene.add(u.ring);
@@ -1026,7 +1057,7 @@ export {
   HALF, CELLS, CELL, NAV, NAVC, COLS, clamp, lerp, rand, noise1, LIM, DRONE_T, LVL_NAME, lvlOf,
   sim, WV, updateWind, COMPASS, compass, cellName, cellOf, cellNameAt, cellCenter,
   stage, renderer, labelRenderer, scene, camera, controls, composer, bloom, uScale, uTime, lightPool, moon,
-  ASSETS, W1, DRUM, DRAIN, label3D, makeLayer, emit, stepLayer, pMat, curl, C, SPRAY_FS,
+  ASSETS, W1, DRUM, DRAIN, label3D, ground, pad, gridLabels, makeLayer, emit, stepLayer, pMat, curl, C, SPRAY_FS,
   fires, Fire, sample, fieldLevel, cells, overlayMat, nav, navIdx, navCenter, findPath, freePoint, nearestFree,
   units, unitHits, unitById, STAGING, MUSTER, ADMIN_DOOR, LVL_COLORS,
   tasks, DRONE_KINDS, taskFire, primaryFire, taskTarget, assignTask, moveUnit, pullBack, safePointFor, ignite,

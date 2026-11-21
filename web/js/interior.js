@@ -4,6 +4,7 @@ import {
   THREE, CSS2DObject, S, scene, camera, controls, sim, units, unitById, W1, ASSETS, sample, addLog, setVisorEvent,
   emitEv, onEv, fires, clamp, rand, tasks, newTaskId, assignTask,
 } from './core.js';
+import { makeHuman, setLying } from './human.js';
 
 const A1 = ASSETS.find(a => a.id === 'A1');
 const WALL_H = 3.2;
@@ -198,13 +199,11 @@ function hatchTex(){
 }
 const HATCH = hatchTex();
 
+// people are articulated humans (human.js): firefighters for crews, workers for casualties
 function figure(color = 0xffb020){
-  const g = new THREE.Group();
-  const m = new THREE.MeshStandardMaterial({ color, roughness:0.6, emissive:color, emissiveIntensity:0.35 });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.9, 4, 10), m); body.position.y = 0.75; body.castShadow = true; g.add(body);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.19, 14, 10), m); head.position.y = 1.55; head.castShadow = true; g.add(head);
-  g.userData.mat = m;
-  return g;
+  const h = makeHuman(color === 0xff5a1f ? 'ff' : 'worker');
+  h.userData.mat = { color:{ setHex(){} }, emissive:{ setHex(){} } };   // status is shown by the ground ring
+  return h;
 }
 export { figure };
 
@@ -268,7 +267,7 @@ function buildInterior(b){
   // people
   for (const p of b.persons){
     const f = figure(0xffb020); f.position.set(p.x, 0, p.z);
-    if (p.lying){ f.rotation.z = Math.PI / 2; f.position.y = 0.25; }
+    if (p.lying) setLying(f); else f.rotation.y = 2.4;
     f.visible = false; G.add(f); p.mesh = f;
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.9, 32), new THREE.MeshBasicMaterial({ color:0xffb020, transparent:true, opacity:0.8, depthWrite:false }));
     ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, 0.08, p.z); ring.visible = false; G.add(ring); p.ring = ring;

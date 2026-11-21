@@ -196,3 +196,8 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 
 @media (max-width:1200px){ :root{--pad:18px} .wordmark{font-size:34px} .tr{width:300px} #right{width:290px} #timeline{left:290px;right:330px} #cam{left:290px} }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* corner containers are click-through: only their content takes clicks, the empty space belongs to the map */
+#left,#right,.corner{pointer-events:none}
+#left section > *,#card,#feed > *,.tl > *,.tr > *,.br > *,#settings{pointer-events:auto}
+#card:empty{pointer-events:none}

@@ -275,8 +275,9 @@ async function camTick(){
     const blob = await (await fetch(`assets/feed/${name}`)).blob();
     const bmp = await createImageBitmap(blob);
     const cv = $('camCanvas'), g = cv.getContext('2d');
-    cv.height = Math.round(cv.width * bmp.height / bmp.width);
-    g.drawImage(bmp, 0, 0, cv.width, cv.height);
+    // letterbox every frame into the fixed 16:10 panel
+    const sc = Math.min(cv.width / bmp.width, cv.height / bmp.height), dw = bmp.width * sc, dh = bmp.height * sc, ox = (cv.width - dw) / 2, oy = (cv.height - dh) / 2;
+    g.fillStyle = '#000'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(bmp, ox, oy, dw, dh);
     const fd = new FormData(); fd.append('image', blob, name);
     const r = await fetch('/api/detect', { method:'POST', body:fd, signal:AbortSignal.timeout(5000) });
     if (!r.ok) throw new Error('detect');
@@ -284,7 +285,7 @@ async function camTick(){
     let fire = 0, smoke = 0;
     g.lineWidth = 2; g.font = '600 11px IBM Plex Mono, monospace';
     for (const b of j.boxes){
-      const [x0, y0, x1, y1] = b.xyxyn.map((v, k) => v * (k % 2 ? cv.height : cv.width));
+      const [x0, y0, x1, y1] = b.xyxyn.map((v, k) => k % 2 ? oy + v * dh : ox + v * dw);
       const col = b.cls === 'fire' ? '#ff5a1f' : '#cfd3da';
       g.strokeStyle = col; g.strokeRect(x0, y0, x1 - x0, y1 - y0);
       g.fillStyle = col; const lab = `${b.cls} ${b.conf.toFixed(2)}`; g.fillRect(x0, y0 - 14, g.measureText(lab).width + 6, 14);
@@ -341,8 +342,8 @@ renderer.domElement.addEventListener('pointerup', e => {
 });
 export function select(s){
   UI.sel = s;
-  if (s && s.type === 'cell'){ const c = cells[s.i]; overlayMat.uniforms.uSel.value.set(c.c, c.r); }
-  else overlayMat.uniforms.uSel.value.set(-1, -1);
+  if (s && s.type === 'cell'){ const c = cells[s.i]; overlayMat.uniforms.uSel.value.set(c.c, c.r); S.gridTarget = 1; }
+  else S.gridTarget = 0;          // the grid fades out; keep the last cell so the fade happens in place
   renderCard(true); renderRoster();
 }
 onEv('select-unit', u => select({ type:'unit', u }));

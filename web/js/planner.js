@@ -9,6 +9,7 @@ import {
   BUILDINGS, extDoors, doorNormal, roomPath, roomAt, zoneGraph, sOutside, fireQ, zoneStep, roomReadings, fedRate, figure,
   enterBuilding,
 } from './interior.js';
+import { setLying } from './human.js';
 
 const STEP = 5, HORIZON = 900, ALPHA = 0.0469;
 const AIR_L = 2040;                 // 6.8 L cylinder at 300 bar
@@ -183,9 +184,8 @@ export function closePlans(){
 export function selectPlan(k){ P.sel = clamp(k, 0, P.plans.length - 1); P.tau = 0; emitEv('plans', P); }
 
 /* ---------------- preview: ghosts + forecast override ---------------- */
-const ghosts = [0, 1].map(() => { const f = figure(0xff5a1f); const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.6, 10), new THREE.MeshStandardMaterial({ color:0xd8d4cc }));
-  tank.position.set(0, 1.0, -0.28); f.add(tank); f.visible = false; scene.add(f); return f; });
-const carried = [0, 1].map(() => { const f = figure(0xffb020); f.rotation.z = Math.PI / 2; f.visible = false; scene.add(f); return f; });
+const ghosts = [0, 1].map(() => { const f = figure(0xff5a1f); f.visible = false; scene.add(f); return f; });
+const carried = [0, 1].map(() => { const f = figure(0xffb020); setLying(f); f.visible = false; scene.add(f); return f; });
 const routeLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color:0xff5a1f, dashSize:0.8, gapSize:0.5 }));
 routeLine.frustumCulled = false; scene.add(routeLine);
 function hideGhosts(){ ghosts.forEach(g => g.visible = false); carried.forEach(g => g.visible = false); routeLine.visible = false; }
@@ -221,7 +221,7 @@ export function updatePlanner(dt){
   [k1, k2].forEach((k, j) => {
     const g = ghosts[j]; g.visible = onFoot && !!k;
     if (k){ const prev = kfAt(p.kf, k.t - 0.5) || k; g.position.set(k.x + (j ? 0.5 : 0), 0, k.z + (j ? 0.5 : 0)); g.rotation.y = Math.atan2(k.x - prev.x, k.z - prev.z) || g.rotation.y; }
-    const c = carried[j]; c.visible = onFoot && k && k.carry > j; if (c.visible) c.position.set(k.x + (j ? 0.5 : 0) + 0.4, 0.35, k.z + (j ? 0.5 : 0));
+    const c = carried[j]; c.visible = onFoot && k && k.carry > j; if (c.visible) c.position.set(k.x + (j ? 0.5 : 0) + 0.35, 0.9, k.z + (j ? 0.5 : 0));
   });
 }
 export function setTau(t){ if (!P.plans.length) return; P.tau = clamp(t, 0, P.plans[P.sel].end); }
@@ -241,8 +241,8 @@ export function commitPlan(k = P.sel){
 S.hooks.target.rescue = t => t.plan.route.out;
 S.hooks.arrive.rescue = (u, t) => {
   const crew = [figure(0xff5a1f), figure(0xff5a1f)];
-  crew.forEach(c => { const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.6, 10), new THREE.MeshStandardMaterial({ color:0xd8d4cc })); tank.position.set(0, 1.0, -0.28); c.add(tank); scene.add(c); });
-  const cv = [figure(0xffb020), figure(0xffb020)]; cv.forEach(c => { c.rotation.z = Math.PI / 2; c.visible = false; scene.add(c); });
+  crew.forEach(c => scene.add(c));
+  const cv = [figure(0xffb020), figure(0xffb020)]; cv.forEach(c => { setLying(c); c.visible = false; scene.add(c); });
   const w0 = t.plan.route.wp[0];
   live.push({ task:t, unit:u, plan:t.plan, crew, cv, wi:1, dwell:-20, carry:[], x:w0.x, z:w0.z, air:AIR_L });
   u.status = 'Crew dismounting';
@@ -281,7 +281,7 @@ S.hooks.ground.rescue = (u, t, dt) => {
 export function updateLive(time){
   for (const L of live){
     L.crew.forEach((c, j) => { c.position.set(L.x + (j ? 0.6 : 0), 0, L.z + (j ? 0.6 : 0)); if (L.h != null) c.rotation.y = L.h; c.visible = L.dwell >= 0; });
-    L.cv.forEach((c, j) => { c.visible = j < L.carry.length; if (c.visible) c.position.set(L.x + (j ? 0.6 : 0) + 0.45, 0.35, L.z + (j ? 0.6 : 0)); });
+    L.cv.forEach((c, j) => { c.visible = j < L.carry.length; if (c.visible) c.position.set(L.x + (j ? 0.6 : 0) + 0.35, 0.9, L.z + (j ? 0.6 : 0)); });
   }
 }
 export { live };

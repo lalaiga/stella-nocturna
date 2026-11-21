@@ -6,6 +6,8 @@ import {
 } from './core.js';
 import { BUILDINGS, enterBuilding, exitBuilding, updateInterior } from './interior.js';
 import { toggleSound, updateSound } from './sound.js';
+import { updateFx } from './fx.js';
+import { animateHumans, updateCrews, updateMuster } from './human.js';
 
 /* ---------------- numbers shown on slides (update after training) ---------------- */
 const M = {
@@ -19,123 +21,117 @@ const htmlOf = i => SLIDES[i].html.replaceAll('{n}', String(i + 1).padStart(2, '
 /* ---------------- slides ---------------- */
 const SLIDES = [
   { cam:[-74, 34, 58], at:[2, 5, -26], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// {n} — Gabès industrial zone, 02:14</div>
+    <div class="pos-tl"><div class="k">// {n} — A chemical plant in Gabès, 2:14 am</div>
       <h1>Two workers<br>are inside.</h1>
-      <p class="lead">Where are they?<br><span class="dim">Can we reach them alive?</span></p></div>
-    <div class="pos-br"><div class="mark">A3TN</div><div class="k">// Command · Tunisian Aeroday · ${T(M.team)}</div></div>` },
+      <p class="lead">Where are they?<br><span class="dim">Can we get them out alive?</span></p></div>
+    <div class="pos-br"><div class="mark">A3TN</div><div class="k">// Tunisian Aeroday · ${T(M.team)}</div></div>` },
 
   { cam:[-36, 20, -4], at:[-8, 13, -36], drift:0.015, html:`
-    <div class="pos-tl"><div class="k">// {n} — The problem</div><h2>Industrial fires<br>are fought blind.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — The problem</div><h2>Firefighters go in<br>without seeing.</h2></div>
     <div class="pos-bl"><ul class="list">
-      <li>Toxic plumes, explosion risk, chemical loads</li>
-      <li>Large buildings with people still inside</li>
-      <li>No live exposure data for each firefighter</li>
-      <li>No forecast of smoke inside buildings</li>
-      <li>Gloves and breathing apparatus: no hands for screens</li></ul></div>
-    <div class="pos-br"><div class="k">${T('2 sourced figures: e.g. Gabès / GCT incidents, firefighter disorientation deaths')}</div></div>` },
+      <li>Toxic smoke and explosion risk</li>
+      <li>Big buildings, people still inside</li>
+      <li>No one knows how hot it is where each firefighter stands</li>
+      <li>No one knows where the smoke will go next</li>
+      <li>Thick gloves: they can’t use a screen</li></ul></div>
+    <div class="pos-br"><div class="k">${T('2 real figures with sources, e.g. industrial fires in Gabès')}</div></div>` },
 
   { cam:[-62, 46, 30], at:[-10, 0, -20], drift:0.015, html:`
-    <div class="pos-tl"><div class="k">// {n} — Need study</div><h2>Target: entry decisions<br>at industrial sites.</h2>
-      <div class="k">// why: highest risk to crews and workers, highest density of people, sensors and plans already exist on site</div></div>
+    <div class="pos-tl"><div class="k">// {n} — The need</div><h2>Who needs this,<br>and why.</h2>
+      <div class="k">// we start with industrial sites: the most dangerous fires, the most people at risk</div></div>
     <div class="pos-bl" style="max-width:1730px"><div class="grid2">
-      <div><div class="k">// users concerned</div><ul class="list">
-        <li>Protection Civile rescue teams and incident commanders</li>
-        <li>Site operators and safety managers (HSE)</li>
-        <li>Public bodies: governorate, civil-defence regional units</li>
-        <li>Nearby residents, warned of the toxic plume</li></ul></div>
+      <div><div class="k">// who it helps</div><ul class="list">
+        <li>Firefighters and their commanders</li>
+        <li>Factory safety managers</li>
+        <li>Local authorities</li>
+        <li>Neighbours, warned when smoke heads their way</li></ul></div>
       <div><div class="k">// today → with A3TN</div><table class="std">
-        <tr><td>Size-up from outside</td><td>drones map heat and people in minutes</td></tr>
-        <tr><td>Radio relays, paper plans</td><td>one shared 3D picture, by voice</td></tr>
-        <tr><td>Exposure judged by feel</td><td>live sensors, automatic withdraw</td></tr>
-        <tr><td>Enter and hope</td><td>forecast-checked GO / NO-GO entry plans</td></tr></table></div>
+        <tr><td>Guess from outside</td><td>drones look inside in minutes</td></tr>
+        <tr><td>Shouting over the radio</td><td>one shared map, controlled by voice</td></tr>
+        <tr><td>“Is it too hot?”</td><td>automatic warning, pull out in time</td></tr>
+        <tr><td>Go in and hope</td><td>a safe route, checked before entering</td></tr></table></div>
     </div></div>` },
 
-  { cam:[-98, 16, 44], at:[-70, 2, 22], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// {n} — Users & empathy map</div><h2>Two people,<br>one decision.</h2></div>
+  { cam:[-84, 5.5, 80], at:[-65, 1.6, 56], drift:0.03, html:`
+    <div class="pos-tl"><div class="k">// {n} — The people we listened to</div><h2>Two people,<br>one decision.</h2></div>
     <div class="pos-bl" style="max-width:1500px"><div class="grid2">
-      <div class="persona"><div class="t">// the incident commander</div><div class="n">Decides who goes in.</div>
+      <div class="persona"><div class="t">// the commander</div><div class="n">Decides who goes in.</div>
         <div class="quote">${T('quote from the Protection Civile interview')}</div>
-        <div class="dim">Needs one trustworthy picture of the site, now.</div></div>
-      <div class="persona"><div class="t">// the entry firefighter</div><div class="n">Can’t see. Can’t type.</div>
+        <div class="dim">Needs to see the whole site, right now.</div></div>
+      <div class="persona"><div class="t">// the firefighter</div><div class="n">Can’t see. Can’t type.</div>
         <div class="quote">${T('quote from the Protection Civile interview')}</div>
         <div class="dim">Needs to know where people are, and when to get out.</div></div>
     </div>
-    <div class="k" style="margin-top:28px">// how we reach them: live demos at Protection Civile units · free training scenarios on the simulator · one pilot with a site operator · ${T('your channel')}</div></div>` },
+    <div class="k" style="margin-top:28px">// how we reach them: demos at fire stations · free training scenarios · a pilot with one factory · ${T('your channel')}</div></div>` },
 
   { cam:[6, 150, 52], at:[0, 0, -12], drift:0.01, html:`
-    <div class="pos-tl"><div class="k">// {n} — A3TN Command</div><h2>A 3D twin of the site<br>that sees, forecasts<br>and talks.</h2>
-      <div class="k hot">// not another fire detector: we keep crews alive after detection</div></div>
+    <div class="pos-tl"><div class="k">// {n} — Our solution</div><h2>A live 3D map<br>of the fire<br>you can talk to.</h2>
+      <div class="k hot">// others detect the fire. we help get everyone out safely.</div></div>
     <div class="pos-bl" style="max-width:1700px"><div class="verbs">
-      <div><b>Detect</b><span>drones + fire/smoke vision</span></div>
-      <div><b>Fuse</b><span>every sensor, with its uncertainty</span></div>
-      <div><b>Forecast</b><span>smoke and heat, room by room</span></div>
-      <div><b>Act</b><span>entry plans, voice, auto-withdraw</span></div></div></div>` },
+      <div><b>See</b><span>drones spot fire, smoke and people</span></div>
+      <div><b>Understand</b><span>all sensors on one map</span></div>
+      <div><b>Predict</b><span>where the smoke will go</span></div>
+      <div><b>Protect</b><span>safe routes, voice orders, automatic pull-out</span></div></div></div>` },
 
   { cam:[34, 30, -58], at:[4, 6, -28], drift:0.05, html:`
     <div class="pos-tl"><div class="k">// {n} — Demo</div><h1>Live.</h1>
-      <p class="lead dim">detection → auto-withdraw → indoor scan<br>→ rescue plan → “Visor, commit plan A”</p></div>` },
+      <p class="lead dim">a drone finds the fire → a firefighter gets too close<br>→ a drone finds the workers → the safe way in</p></div>` },
 
   { cam:[-50, 33, -6], at:[-26, -2, -28], drift:0.02, inside:'W1', hideGround:true, html:`
-    <div class="pos-tl"><div class="k">// {n} — The AI</div><h2>Two models trained.<br>One laptop GPU.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — The AI</div><h2>What the AI does.</h2></div>
     <div class="pos-bl" style="max-width:1730px"><div class="grid4">
-      <div class="cell"><div class="t">YOLO11n · trained</div><div class="s">fire & smoke on drone video, fine-tuned on D-Fire (21,527 images)</div>
-        <div class="m">mAP@.5 ${M.yoloMap50}<small>4,306 held-out images</small></div></div>
-      <div class="cell"><div class="t">Smoke GNN · trained</div><div class="s">forecasts smoke and heat room to room, any floor plan</div>
-        <div class="m">${M.gnnT}<small>error over 6 min, 200 unseen buildings</small></div></div>
-      <div class="cell"><div class="t">Bayesian fusion</div><div class="s">not trained: probabilistic layer combining crews, drones, detectors, YOLO</div>
-        <div class="m">64 ± 3 °C<small>every number shows its sources</small></div></div>
-      <div class="cell"><div class="t">Voice</div><div class="s">pretrained, integrated: Whisper → Gemini → Piper</div>
-        <div class="m">~3 s<small>order to spoken answer · refuses unsafe orders</small></div></div>
-    </div><div class="k" style="margin-top:26px">// runs locally; only the language model needs internet, with an offline fallback</div></div>` },
+      <div class="cell"><div class="t">Spots fire & smoke</div><div class="s">in the drone’s camera, trained on 21,500 real fire photos</div>
+        <div class="m">tested<small>on 4,300 photos it had never seen</small></div></div>
+      <div class="cell"><div class="t">Predicts smoke</div><div class="s">room by room, minutes ahead, in any building</div>
+        <div class="m">±2 °C<small>accuracy on 200 new buildings</small></div></div>
+      <div class="cell"><div class="t">Combines sensors</div><div class="s">drones, firefighters, alarms: one picture</div>
+        <div class="m">honest<small>always says how sure it is</small></div></div>
+      <div class="cell"><div class="t">Listens & talks</div><div class="s">firefighters speak, it answers out loud</div>
+        <div class="m">~3 s<small>and refuses unsafe orders</small></div></div>
+    </div><div class="k" style="margin-top:26px">// runs on one laptop · keeps working if the internet drops (basic voice commands)</div></div>` },
 
-  { cam:[18, 12, -4], at:[6, 3, -24], drift:0.02, withdraw:true, html:`
-    <div class="pos-tl"><div class="k">// {n} — Realism & safety</div><h2>Physics, standards,<br>hard safety locks.</h2></div>
-    <div class="pos-bl"><table class="std">
-      <tr><td>Fire growth</td><td>t² “fast” curve · NFPA 72 / SFPE</td></tr>
-      <tr><td>Flames & plume</td><td>Heskestad · McCaffrey · Gaussian dispersion</td></tr>
-      <tr><td>Toxicity</td><td>ISO 13571 fractional effective dose</td></tr>
-      <tr><td>Exposure limits</td><td>NIOSH IDLH · OSHA · 1.6 / 4.7 / 10 kW/m²</td></tr>
-      <tr><td>Drones</td><td>120 m ceiling (EASA / ${T('OACA rule ref')}) · geofence · return-home</td></tr>
-      <tr><td>Real data</td><td>live Gabès wind (Open-Meteo) · real fire imagery</td></tr></table></div>
-    <div class="pos-br"><ul class="list" style="text-align:left">
-      <li>Crews auto-withdrawn at critical exposure</li>
-      <li>Routes never cross critical cells</li>
-      <li>The AI cannot send a crew into danger</li></ul></div>` },
+  { cam:[24, 15, -12], at:[1, 2, -27], drift:0.02, withdraw:true, html:`
+    <div class="pos-tl"><div class="k">// {n} — Realistic and safe</div><h2>Real fire science.<br>Real safety rules.</h2></div>
+    <div class="pos-bl"><ul class="list">
+      <li>Fire and smoke follow the formulas fire engineers use</li>
+      <li>Safety limits come from international firefighter standards</li>
+      <li>Drones stay under the legal 120 m ceiling</li>
+      <li>Real wind data from Gabès, real fire photos</li></ul></div>
+    <div class="pos-br"><div class="k" style="text-align:left">// three things it will never do</div><ul class="list" style="text-align:left">
+      <li>Let a firefighter stay where it’s deadly</li>
+      <li>Route anyone through the danger zone</li>
+      <li>Obey an order that puts a crew at risk</li></ul></div>` },
 
   { cam:[78, 30, -18], at:[46, 6, -56], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// {n} — Technical feasibility</div><h2>Built on what sites<br>already have.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — Can we build it?</div><h2>Yes. Most of it<br>already works.</h2></div>
     <div class="pos-bl" style="max-width:1700px"><div class="grid2">
-      <div><div class="k">// resources</div><ul class="list">
-        <li>1 thermal drone + 1 caged indoor drone</li><li>Rugged laptop with a GPU</li>
-        <li>Existing site heat detectors + crew wearables</li><li>${T('team size and roles')}</li></ul></div>
-      <div><div class="k">// steps from idea to product · estimated duration</div><ul class="list">
-        <li>1 · Prototype (done): twin, models, voice · 48 h</li>
-        <li>2 · Site data: plans, detectors, drone flights · ${T('duration')}</li>
-        <li>3 · Pilot on one site with the Protection Civile · ${T('duration')}</li>
-        <li>4 · Certification, integration, regional rollout · ${T('duration')}</li>
-        <li>Total to market: ${T('total duration')}</li></ul></div>
+      <div><div class="k">// what it needs</div><ul class="list">
+        <li>2 drones: one outside, one small enough to fly indoors</li>
+        <li>One laptop</li>
+        <li>The fire alarms the factory already has</li>
+        <li>${T('our team and roles')}</li></ul></div>
+      <div><div class="k">// the steps</div><ul class="list">
+        <li>1 · Working prototype · done this weekend</li>
+        <li>2 · Map a real factory · ${T('duration')}</li>
+        <li>3 · Test it with the Protection Civile · ${T('duration')}</li>
+        <li>4 · Roll it out region by region · ${T('duration')}</li></ul></div>
     </div>
-    <div class="k" style="margin-top:24px">// supporting material: live demo · 1-min video · architecture schema · model report · public GitHub repo</div></div>` },
+    <div class="k" style="margin-top:24px">// see it: live demo · 1-min video · code on GitHub</div></div>` },
 
   { cam:[-128, 92, 124], at:[0, 0, -4], drift:0.012, html:`
-    <div class="pos-tl"><div class="k">// {n} — Commercial feasibility</div><h2>Cheap enough for<br>every classified site.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — Does it make sense financially?</div><h2>Cheap enough for<br>every factory.</h2></div>
     <div class="pos-bl" style="max-width:1700px"><div class="grid2">
-      <div><div class="k">// market</div><ul class="list">
-        <li>Tunisian classified industrial sites · ${T('count')}</li><li>Protection Civile regional units</li>
-        <li>Insurers and site operators</li></ul></div>
-      <div><div class="k">// cost per site kit</div><table class="std">
-        <tr><td>Thermal drone</td><td>${T('price')}</td></tr><tr><td>Indoor caged drone</td><td>${T('price')}</td></tr>
-        <tr><td>GPU laptop</td><td>${T('price')}</td></tr><tr><td>Software</td><td>open-source models · ${T('LLM cost / incident')}</td></tr>
-        <tr><td>Total</td><td>${T('total')} + ${T('yearly subscription')}</td></tr></table></div>
+      <div><div class="k">// who pays</div><ul class="list">
+        <li>Factories with dangerous materials · ${T('how many in Tunisia')}</li>
+        <li>The Protection Civile, for training</li>
+        <li>Insurers</li></ul></div>
+      <div><div class="k">// what it costs</div><table class="std">
+        <tr><td>One kit per factory</td><td>${T('price')}</td></tr>
+        <tr><td>Yearly subscription</td><td>${T('price')}</td></tr>
+        <tr><td>Whole project</td><td>${T('total cost')}</td></tr>
+        <tr><td>Funding</td><td>${T('grants / partners')}</td></tr></table></div>
     </div>
-    <div class="grid2" style="margin-top:26px">
-      <div><div class="k">// global project cost</div><table class="std">
-        <tr><td>Development</td><td>${T('cost')}</td></tr><tr><td>Pilot site</td><td>${T('cost')}</td></tr>
-        <tr><td>Rollout (per region)</td><td>${T('cost')}</td></tr></table></div>
-      <div><div class="k">// funding & viability</div><ul class="list">
-        <li>Site operators buy kits (regulatory safety duty)</li><li>Protection Civile: training licence</li>
-        <li>${T('grants / incubator / partners')}</li><li>Subscriptions cover maintenance and updates</li></ul></div>
-    </div></div>` },
+    <div class="k" style="margin-top:24px">// off-the-shelf drones and free software keep the price low</div></div>` },
 
   { cam:[-128, 70, 126], at:[0, 0, -4], drift:0.01, html:`
     <div class="pos-tl"><div class="k">// {n} — Business model canvas</div></div>
@@ -151,19 +147,18 @@ const SLIDES = [
       <div class="rev"><b>revenue streams</b>${T('…')}</div></div></div>` },
 
   { cam:[-86, 22, 82], at:[-52, 2, 50], drift:0.02, html:`
-    <div class="pos-tl"><div class="k">// {n} — With the Protection Civile</div><h2>Deployment,<br>step by step.</h2></div>
+    <div class="pos-tl"><div class="k">// {n} — With the Protection Civile</div><h2>How we roll it out<br>together.</h2></div>
     <div class="pos-bl"><table class="std">
-      <tr><td>Equipment</td><td>one drone kit + laptop per regional unit</td></tr>
-      <tr><td>Data</td><td>site floor plans, detector feeds, hazardous-material inventory</td></tr>
-      <tr><td>Training</td><td>the same simulator trains crews on realistic scenarios</td></tr>
-      <tr><td>Maintenance</td><td>${T('who maintains drones / software, how often')}</td></tr>
-      <tr><td>Support</td><td>on-call technical support, scenario updates, yearly joint exercise</td></tr>
-      <tr><td>Pilot</td><td>one classified site, ${T('duration')}, measured against today’s practice</td></tr></table></div>` },
+      <tr><td>Equipment</td><td>one drone kit and laptop per regional unit</td></tr>
+      <tr><td>Information</td><td>building plans and alarm data from each factory</td></tr>
+      <tr><td>Training</td><td>the same 3D scene becomes a training simulator</td></tr>
+      <tr><td>Maintenance</td><td>${T('who maintains it, how often')}</td></tr>
+      <tr><td>Support</td><td>help line, new scenarios, a yearly joint exercise</td></tr>
+      <tr><td>First step</td><td>a pilot on one factory, ${T('duration')}</td></tr></table></div>` },
 
   { cam:[-160, 118, 150], at:[0, 0, -12], drift:0.01, html:`
     <div class="pos-tl"><div class="k">// {n}</div><h1>Know before<br>you go in.</h1>
-      <p class="lead">The ask: one pilot site<br>with the Protection Civile.</p>
-      <div class="k" style="margin-top:28px">// deliverables: BMC · team report · empathy map · 1-min video · model report · GitHub repo</div></div>
+      <p class="lead">Our ask: one pilot factory<br>with the Protection Civile.</p></div>
     <div class="pos-br"><div class="mark">A3TN</div><div class="k">// ${T(M.repo)}</div></div>` },
 ];
 
@@ -177,7 +172,8 @@ for (const r of w.rooms) r.scanned = true;
 for (const p of w.persons){ p.found = true; p.prob = 0.97; }
 Object.assign(w.state, { s:Float64Array.from([0.85, 0.7, 0.45, 0.32]), T:Float64Array.from([310, 120, 75, 58]) });
 const place = (id, x, z, y = 0) => { const u = unitById(id); u.pos.set(x, y, z); u.targetHeading = u.heading = Math.atan2(4 - x, -28 - z); };
-place('E1', -30, -22); place('E2', 20, -12); place('H1', -14, -9); place('R1', -60, 40);
+place('E1', -30, -22); place('E2', 20, -12);
+for (const id of ['E1', 'E2', 'H1']) unitById(id).mode = 'working'; place('H1', -14, -9); place('R1', -60, 40);
 place('D1', 26, -46, 30); place('D2', -40, -64, 16); place('D3', -21, -29.5, 2.2);
 const D1 = unitById('D1');
 updateRisk();
@@ -258,6 +254,7 @@ function frame(dtOverride){
     u.ring.material.color.setHex(LVL_COLORS[u.level]); u.ring.material.opacity = u.level >= 3 ? 0.55 + 0.4 * Math.sin(S.clock * 8) : 0.45;
   }
   updateInterior(dt, S.clock, null);
+  updateCrews(dt); updateMuster(dt, S.clock, 17); updateFx(dt, S.clock); animateHumans(dt, S.clock);
   const sl = SLIDES[cur];
   if (sl){
     const tgt = camAt(sl, t);

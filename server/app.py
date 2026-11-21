@@ -31,6 +31,15 @@ app = FastAPI(title="A3TN Command")
 _lazy: dict = {}
 
 
+@app.middleware("http")
+async def revalidate_static(request, call_next):
+    """Make browsers re-check web files on every load, so edits always show up (ETag keeps it cheap)."""
+    r = await call_next(request)
+    if not request.url.path.startswith("/api"):
+        r.headers["Cache-Control"] = "no-cache"
+    return r
+
+
 def cuda_ok() -> bool:
     try:
         import torch
