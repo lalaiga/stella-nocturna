@@ -201,3 +201,8 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 #left,#right,.corner{pointer-events:none}
 #left section > *,#card,#feed > *,.tl > *,.tr > *,.br > *,#settings{pointer-events:auto}
 #card:empty{pointer-events:none}
+
+/* page switcher */
+.nav{margin-top:10px;display:flex;gap:12px}
+.nav a{color:var(--mute);text-decoration:none} .nav a:before{content:"[ ";color:var(--dim)} .nav a:after{content:" ]";color:var(--dim)}
+.nav a.on{color:var(--hot)} .nav a:hover{color:var(--ink)}
