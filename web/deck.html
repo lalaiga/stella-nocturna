@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A3TN Pitch</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<script type="importmap">
+{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<style>
+:root{
+  --bg:#0a0d13; --ink:#d8dce2; --mute:#8a929e; --dim:#545c68; --line:rgba(216,220,226,.16);
+  --hot:#ff6a2b; --ok:#9fd8c0; --warn:#e8b04a; --bad:#ff4d3d;
+  --mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block}
+.labels{display:none}
+#shade{position:fixed;inset:0;pointer-events:none;
+  background:radial-gradient(120% 95% at 55% 45%, transparent 40%, rgba(6,8,12,.6) 78%, rgba(6,8,12,.9) 100%),
+             linear-gradient(90deg, rgba(6,8,12,.78), rgba(6,8,12,.25) 38%, transparent 60%)}
+/* 1920×1080 design frame, scaled to the window */
+#frame{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0}
+.slide{position:absolute;inset:0;padding:84px 96px;font-size:20px;line-height:1.5}
+.k{color:var(--mute);font-size:18px;letter-spacing:.02em}
+.k.hot{color:var(--hot)}
+h1{font-size:120px;line-height:.95;letter-spacing:-.045em;font-weight:700;margin:22px 0 26px}
+h2{font-size:76px;line-height:1.0;letter-spacing:-.04em;font-weight:700;margin:20px 0 26px}
+.lead{font-size:30px;line-height:1.35;color:var(--ink);margin:0}
+.lead .dim,.dim{color:var(--mute)}
+.pos-tl{position:absolute;left:96px;top:84px;max-width:1000px}
+.pos-bl{position:absolute;left:96px;bottom:110px;max-width:900px}
+.pos-br{position:absolute;right:96px;bottom:110px;text-align:right;max-width:760px}
+.pos-tr{position:absolute;right:96px;top:84px;text-align:right;max-width:760px}
+.mark{font-weight:700;font-size:64px;letter-spacing:-.05em}
+ul.list{list-style:none;margin:0;padding:0}
+ul.list li{padding:7px 0;border-top:1px solid var(--line);font-size:24px}
+ul.list li:first-child{border-top:0}
+ul.list li:before{content:"— ";color:var(--hot)}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin-top:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:56px}
+.cell .t{font-weight:700;font-size:26px;letter-spacing:-.01em}
+.cell .s{color:var(--mute);font-size:18px;margin-top:4px}
+.cell .m{font-size:34px;font-weight:600;color:var(--ok);margin-top:12px;letter-spacing:-.02em}
+.cell .m small{font-size:16px;color:var(--mute);font-weight:400;display:block;letter-spacing:0}
+.verbs{display:grid;grid-template-columns:repeat(4,1fr);gap:36px}
+.verbs b{display:block;font-size:40px;letter-spacing:-.03em;color:var(--hot)}
+.verbs span{color:var(--mute);font-size:20px}
+table.std{border-collapse:collapse;font-size:22px}
+table.std td{padding:7px 0;border-top:1px solid var(--line);vertical-align:top}
+table.std tr:first-child td{border-top:0}
+table.std td:first-child{color:var(--mute);padding-right:40px;white-space:nowrap}
+.quote{font-size:30px;line-height:1.35;margin:10px 0 6px}
+.quote:before{content:"“";color:var(--hot)} .quote:after{content:"”";color:var(--hot)}
+.persona .t{font-size:22px;color:var(--mute)}
+.persona .n{font-size:40px;font-weight:700;letter-spacing:-.03em}
+.bmc{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(2,250px) 150px;gap:1px;background:var(--line);border:1px solid var(--line);width:1728px}
+.bmc div{background:rgba(10,13,19,.88);padding:16px 18px;font-size:18px}
+.bmc div b{display:block;color:var(--mute);font-weight:500;font-size:15px;margin-bottom:8px;text-transform:lowercase}
+.bmc .kp{grid-row:1/3} .bmc .vp{grid-row:1/3} .bmc .cs{grid-row:1/3}
+.bmc .cost{grid-column:1/3} .bmc .rev{grid-column:3/6}
+.todo{color:var(--hot);border-bottom:1px dashed var(--hot)}
+.todo:before{content:"‹ "} .todo:after{content:" ›"}
+/* chrome */
+#chrome{position:fixed;left:0;right:0;bottom:0;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:13px;color:var(--mute);z-index:5}
+#bar{position:fixed;left:0;bottom:0;height:2px;background:var(--hot);transition:width .6s}
+#chrome button{font:inherit;color:var(--mute);background:none;border:0;cursor:pointer}
+#chrome button:before{content:"[ ";color:var(--dim)} #chrome button:after{content:" ]";color:var(--dim)}
+#chrome button:hover{color:var(--ink)}
+#count{color:var(--ink)}
+#loader{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:50;transition:opacity .8s;font-size:16px;color:var(--mute)}
+#loader.done{opacity:0;pointer-events:none}
+/* print: one page per slide, captured 3D still + identical text */
+#print{display:none}
+@page{size:1920px 1080px;margin:0}
+@media print{
+  html,body{overflow:visible;height:auto;background:#000}
+  #stage,#shade,#frame,#chrome,#bar,#loader{display:none!important}
+  #print{display:block}
+  .page{position:relative;width:1920px;height:1080px;overflow:hidden;page-break-after:always;break-after:page;background:var(--bg)}
+  .page img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .page .pshade{position:absolute;inset:0;background:radial-gradient(120% 95% at 55% 45%, transparent 40%, rgba(6,8,12,.6) 78%, rgba(6,8,12,.9) 100%),linear-gradient(90deg, rgba(6,8,12,.78), rgba(6,8,12,.25) 38%, transparent 60%)}
+  .page .pfoot{position:absolute;left:96px;right:96px;bottom:40px;display:flex;justify-content:space-between;font-size:14px;color:var(--mute)}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="shade"></div>
+<div id="frame"><div id="slide" class="slide"></div></div>
+<div id="bar"></div>
+<div id="chrome">
+  <span>A3TN // Command</span>
+  <span><button id="prev">prev</button> &nbsp; <span id="count">01 / 12</span> &nbsp; <button id="next">next</button></span>
+  <span><button id="sound">sound: off</button> &nbsp; <button id="export">export pdf</button></span>
+</div>
+<div id="loader">[====--==++--] rendering site</div>
+<div id="print"></div>
+<script type="module" src="js/deck.js"></script>
+</body>
+</html>
