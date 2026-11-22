@@ -2,11 +2,14 @@
 // Steps fire on simulation time or on events (never on wall-clock), so it works at any speed. Runs from a clean
 // start: the button reloads the page with #run, which starts it automatically.
 import {
-  S, sim, units, unitById, tasks, fires, camera, controls, assignTask, moveUnit, cellCenter, addLog, setVisorEvent, onEv, tplus,
+  S, sim, units, unitById, tasks, fires, camera, controls, assignTask, moveUnit, cellCenter, addLog, setVisorEvent, onEv, emitEv, tplus,
 } from './core.js';
 import { BUILDINGS, startScan, enterBuilding, exitBuilding } from './interior.js';
 import { P, makePlans, commitPlan } from './planner.js';
 
+// ?short=1 : the one-minute cut. Calm speed at the start so the key moments read, faster once the rescue is under way,
+// and a shorter hold on the plan screen.
+const SHORT = new URLSearchParams(location.search).has('short');
 export const SC = { running:false, t0:0, steps:[], done:new Set(), cam:null, stats:{ withdrawals:0 } };
 const taskById = id => tasks.find(t => t.id === id);
 const allRescued = id => BUILDINGS[id].persons.every(p => p.rescued);
@@ -21,7 +24,7 @@ async function planAndCommit(id){
     const k = Math.max(0, P.plans.findIndex(p => p.verdict === 'GO'));
     say(`Committing plan ${P.plans[k].id}, ${P.plans[k].door.name}.`, `<b>PLAN ${P.plans[k].id}</b>${P.plans[k].door.name} · ${P.plans[k].verdict}`, 6);
     commitPlan(k);
-  }, 7000);
+  }, SHORT ? 2500 : 7000);
 }
 
 // each step: trigger = { at: seconds since start } and/or { when: () => bool } and/or { after: [step ids] }
@@ -76,11 +79,24 @@ onEv('scan-done', ({ building, found }) => {
 });
 onEv('log', ({ text }) => { if (SC.running && /auto-withdrawn/.test(text)) SC.stats.withdrawals++; });
 onEv('ignite', () => { if (!SC.running) return; for (const t of tasks) if (t.kind === 'foam' && t.status === 'queued' && t.fireId !== 'F1') assignTask(t, unitById(t.unit)); });
-function fire(id){ const s = STEPS.find(x => x.id === id); if (!s || SC.done.has(id)) return; SC.done.add(id); s.run(); }
+// Voice-over script: plain-language narration, one line per step. The recorder stamps the time each line is due.
+export const NARRATION = {
+  intro:  'A fire has broken out at a chemical plant, and two workers are missing.',
+  safety: 'Engine 2 is sent too close, and the system pulls it back by itself.',
+  drones: 'Two firefighting drones now spray foam on the fire.',
+  foam:   'Engine 2 returns and attacks from a safe distance.',
+  scan1:  'At roll call, two workers are missing. The indoor drone flies into the warehouse and finds them.',
+  plan1:  'The system predicts the smoke, picks the safest way in, and the rescue team goes in.',
+  scan2:  'The warehouse is clear. The drone now checks the admin building, where one person is missing.',
+  plan2:  'Another person is found. A safe plan is built, and the rescue team goes in.',
+  finish: 'Everyone is out, and the fire is out. Three people saved. That is A3TN Command.',
+};
+function fire(id){ const s = STEPS.find(x => x.id === id); if (!s || SC.done.has(id)) return; SC.done.add(id); if (NARRATION[id]) emitEv('narrate', { id, text:NARRATION[id] }); s.run(); }
 
 S.hooks.step.push(() => {
   if (!SC.running) return;
   const t = sim.t - SC.t0;
+  if (SHORT) sim.speed = t < 60 ? 5 : t < 150 ? 10 : 18;
   for (const s of STEPS){
     if (SC.done.has(s.id) || s.at === null && !s.when) continue;
     if (s.after && !s.after.every(a => SC.done.has(a))) continue;

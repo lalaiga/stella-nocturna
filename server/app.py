@@ -34,7 +34,7 @@ app = FastAPI(title="A3TN Command")
 @app.post("/api/save_video")
 async def save_video(request: Request, name: str, part: int = 0):
     import re as _re
-    if not _re.fullmatch(r"scenario(_nosubs)?\.(webm|srt)", name):
+    if not _re.fullmatch(r"scenario(_nosubs|_1min)?\.(webm|srt|cues\.json)", name):
         raise HTTPException(400, "bad name")
     out = ROOT / "video"; out.mkdir(exist_ok=True)
     data = await request.body()

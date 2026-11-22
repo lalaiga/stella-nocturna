@@ -8,7 +8,8 @@ import { V } from './voice.js';
 
 export const REC_MODE = location.hash === '#record';
 const NO_SUBS = new URLSearchParams(location.search).has('nosubs');   // ?nosubs=1 : no subtitle bar, separate output file
-const OUT = NO_SUBS ? 'scenario_nosubs' : 'scenario';
+const SHORT = new URLSearchParams(location.search).has('short');       // ?short=1 : the one-minute cut, saved as scenario_1min.*
+const OUT = SHORT ? 'scenario_1min' : NO_SUBS ? 'scenario_nosubs' : 'scenario';
 const W = 1280, H = 720, FPS = 30;
 const R = { canvas:null, ctx:null, mr:null, chunks:[], t0:0, queue:[], cur:null, srt:[], visor:'', visorCls:'l0', visorAt:0, endAt:0, state:'idle' };
 const INK = '#14181e', MUTE = '#4c5562', HOT = '#e0501a', BAD = '#d4301f', WARN = '#b8770e';
@@ -21,6 +22,8 @@ if (REC_MODE){
   document.head.appendChild(st);
 }
 
+const CUES = [];
+onEv('narrate', ({ id, text }) => { if (REC_MODE) CUES.push({ t:R.state === 'recording' ? (performance.now() - R.t0) / 1000 : 0, id, text }); });
 onEv('say', ({ text }) => { if (REC_MODE && (R.state === 'idle' || R.state === 'recording')) R.queue.push(text); });
 
 const fmtSrt = s => { const ms = Math.round(s * 1000), h = Math.floor(ms / 3600000), m = Math.floor(ms % 3600000 / 60000), sec = Math.floor(ms % 60000 / 1000);
@@ -47,7 +50,7 @@ async function upload(){
       if (!r.ok) throw new Error('upload failed ' + r.status);
     }
   };
-  try { if (!NO_SUBS) await send(OUT + '.srt', new Blob([srt])); await send(OUT + '.webm', blob); R.state = 'done'; }
+  try { if (!NO_SUBS) await send(OUT + '.srt', new Blob([srt])); await send(OUT + '.cues.json', new Blob([JSON.stringify(CUES, null, 1)])); await send(OUT + '.webm', blob); R.state = 'done'; }
   catch (e){ R.state = 'error: ' + e.message; }
   window.__recorder = { state:R.state, bytes:blob.size, seconds:Math.round((performance.now() - R.t0) / 1000), subtitles:R.srt.length };
 }
@@ -127,7 +130,7 @@ export function recorderTick(dt){
   }
 
   // ---- stop a few seconds after the scenario ends (the summary stays on screen)
-  if (st.finished && !R.endAt) R.endAt = t + 7;
+  if (st.finished && !R.endAt) R.endAt = t + (SHORT ? 3.5 : 7);
   if (R.endAt && t >= R.endAt && R.state === 'recording'){
     if (R.cur){ R.srt.push({ start:R.cur.start, end:t, text:R.cur.text }); R.cur = null; }
     R.state = 'stopping'; R.mr.stop();
