@@ -22,3 +22,6 @@ __pycache__/
 /yolo11n.pt
 ml/models/yolo_train.log
 /runs/
+
+# Recorded scenario video (large)
+/video/

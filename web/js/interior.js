@@ -359,7 +359,7 @@ function scanRoom(b, roomId){
   const r = b.rooms[b.idx[roomId]]; r.scanned = true; r.scanT = sim.t;
   for (const p of b.persons.filter(p => p.room === roomId && !p.rescued)){
     // thermal camera sees through smoke; small miss probability
-    const hit = rand() < 0.95;
+    const hit = S.scripted || rand() < 0.95;     // the scripted scenario is deterministic
     emitEv('observe-person', { person:p, hit });
   }
   emitEv('room-scanned', { building:b.id, room:roomId });

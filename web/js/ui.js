@@ -8,6 +8,7 @@ import { BUILDINGS, buildingAt, roomAt, enterBuilding, exitBuilding, startScan, 
 import { P, makePlans, closePlans, selectPlan, commitPlan, setTau } from './planner.js';
 import { V, startTalk, stopTalk, handle, say } from './voice.js';
 import { toggleSound } from './sound.js';
+import { scenarioStatus } from './scenario.js';
 
 /* text that decodes into place, like a radio signal locking on */
 const GLYPHS = '#%&*+=-/\<>[]{}_01';
@@ -372,6 +373,7 @@ function act(el){
     case 'plans-close': closePlans(); break;
     case 'commit': commitPlan(); break;
     case 'tl-play': { const p = P.plans[P.sel]; if (p){ if (P.tau >= p.end) P.tau = 0; P.playing = !P.playing; } break; }
+    case 'scenario': { const st = scenarioStatus(); location.hash = st.running ? '' : '#run'; location.reload(); break; }
     case 'log': $('log').hidden = !$('log').hidden; $('logState').textContent = $('log').hidden ? '[+]' : '[−]'; break;
     case 'sound': $('soundBtn').textContent = `sound: ${toggleSound() ? 'on' : 'off'}`; break;
     case 'type': $('typeForm').hidden = !$('typeForm').hidden; if (!$('typeForm').hidden) $('typeInput').focus(); break;
@@ -412,6 +414,16 @@ onEv('view', () => renderAll(true));
 onEv('scan-done', ({ building }) => { if (!P.open) select({ type:'building', id:building }); });
 
 
+/* ---------------- scripted scenario panel ---------------- */
+function renderScenario(){
+  const el = $('scen'); if (!el) return;
+  const st = scenarioStatus(), cur = st.steps.findIndex(s => s.state === 'todo');
+  const row = (state, text) => `<div class="${state === 'done' ? 'ok' : state === 'now' ? 'warn' : ''}"><i>${state === 'done' ? '✓' : state === 'now' ? '▸' : '·'}</i><span>${text}</span><em></em></div>`;
+  el.innerHTML = (st.running || st.finished || st.steps.some(s => s.state === 'done'))
+    ? st.steps.map((s, i) => row(s.state === 'done' ? 'done' : i === cur && st.running ? 'now' : 'todo', s.title)).join('') + (st.summary ? `<div class="ok" style="margin-top:6px"><i>★</i><span>${st.summary}</span><em></em></div>` : '')
+    : '<div class="dim" style="grid-template-columns:1fr">Hands-off run of the whole response: drones, engines, scan, plans, rescue.</div>';
+  const b = $('scenBtn'); if (b) b.textContent = st.running ? 'Stop scenario' : 'Run full scenario';
+}
 /* ---------------- live safety precautions: industrial fire ---------------- */
 function renderPrecautions(){
   const el = $('prec'); if (!el) return;
@@ -436,7 +448,7 @@ function renderPrecautions(){
 }
 
 export function renderAll(force){
-  renderTop(); renderVisor(); renderRoster(); renderSite(); renderBuildings(); renderCard(force); renderLog(); renderTimeline(); renderPrecautions();
+  renderTop(); renderVisor(); renderRoster(); renderSite(); renderBuildings(); renderCard(force); renderLog(); renderTimeline(); renderPrecautions(); renderScenario();
 }
 export function uiTick(){ renderAll(false); camTick(); }
 export function uiFast(){ renderTimeline(); }

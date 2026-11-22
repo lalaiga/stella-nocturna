@@ -2,7 +2,7 @@
 // [ export pdf ] renders every slide to a still and prints it with the exact same text (deck == PDF).
 import {
   THREE, S, scene, camera, controls, renderer, composer, labelRenderer, bloom, uScale, uTime, fires, Fire, DRUM, lightPool,
-  units, unitById, updateRisk, overlayMat, W1, ignite, sim, LVL_COLORS,
+  units, unitById, updateRisk, overlayMat, W1, ignite, sim, LVL_COLORS, emit, stepLayer, rand,
 } from './core.js';
 import { BUILDINGS, enterBuilding, exitBuilding, updateInterior } from './interior.js';
 import { toggleSound, updateSound } from './sound.js';
@@ -71,11 +71,25 @@ const SLIDES = [
       <div><b>See</b><span>drones spot fire, smoke and people</span></div>
       <div><b>Understand</b><span>all sensors on one map</span></div>
       <div><b>Predict</b><span>where the smoke will go</span></div>
-      <div><b>Protect</b><span>safe routes, voice orders, automatic pull-out</span></div></div></div>` },
+      <div><b>Protect</b><span>drones and crews put out the fire · safe routes · automatic pull-out</span></div></div></div>` },
 
   { cam:[34, 30, -58], at:[4, 6, -28], drift:0.05, html:`
     <div class="pos-tl"><div class="k">// {n} — Demo</div><h1>Live.</h1>
-      <p class="lead dim">a drone finds the fire → a firefighter gets too close<br>→ a drone finds the workers → the safe way in</p></div>` },
+      <p class="lead dim">one click runs the whole response:<br>drones, foam, safety, rescue.</p></div>` },
+
+  { cam:[-26, 30, -7], at:[4, 12, -28], drift:0.03, html:`
+    <div class="pos-tl"><div class="k">// {n} — What you will see</div><h2>One fire,<br>nine steps.</h2></div>
+    <div class="pos-bl" style="max-width:1150px"><table class="std">
+      <tr><td>1</td><td>Fire reported. Recon drone, gas drone, hazmat and rescue launch.</td></tr>
+      <tr><td>2</td><td>Safety lock: an engine sent too close pulls out by itself.</td></tr>
+      <tr><td>3</td><td>Two firefighting drones spray foam on the flames.</td></tr>
+      <tr><td>4</td><td>The engine attacks again, from a safe distance.</td></tr>
+      <tr><td>5</td><td>Roll call: two missing. The indoor drone scans the warehouse.</td></tr>
+      <tr><td>6</td><td>Workers found. The safest way in is chosen. The rescue team goes in.</td></tr>
+      <tr><td>7</td><td>Warehouse clear. The indoor drone scans the admin block.</td></tr>
+      <tr><td>8</td><td>Person found there too. Plan, then rescue.</td></tr>
+      <tr><td>9</td><td>Everyone out, fire out. Summary on screen.</td></tr></table></div>
+    <div class="pos-br"><div class="k">// narrated by Visor · one button: “Run full scenario”</div></div>` },
 
   { cam:[-50, 33, -6], at:[-26, -2, -28], drift:0.02, inside:'W1', hideGround:true, html:`
     <div class="pos-tl"><div class="k">// {n} — The AI</div><h2>What the AI does.</h2></div>
@@ -106,7 +120,7 @@ const SLIDES = [
     <div class="pos-tl"><div class="k">// {n} — Can we build it?</div><h2>Yes. Most of it<br>already works.</h2></div>
     <div class="pos-bl" style="max-width:1700px"><div class="grid2">
       <div><div class="k">// what it needs</div><ul class="list">
-        <li>2 drones: one outside, one small enough to fly indoors</li>
+        <li>5 drones: recon, gas survey, an indoor scout and 2 that spray foam</li>
         <li>One laptop</li>
         <li>The fire alarms the factory already has</li>
         <li>${T('our team and roles')}</li></ul></div>
@@ -175,6 +189,8 @@ const place = (id, x, z, y = 0) => { const u = unitById(id); u.pos.set(x, y, z);
 place('E1', -30, -22); place('E2', 20, -12);
 for (const id of ['E1', 'E2', 'H1']) unitById(id).mode = 'working'; place('H1', -14, -9); place('R1', -60, 40);
 place('D1', 26, -46, 30); place('D2', -40, -64, 16); place('D3', -21, -29.5, 2.2);
+place('D4', -10, -30, 17); place('D5', 8, -19, 17);                 // firefighting drones hover upwind of the fire
+for (const id of ['D4', 'D5', 'E2']){ const u = unitById(id); u.sprayOn = true; u.sprayTo.set(4, 1.5, -28); }
 const D1 = unitById('D1');
 updateRisk();
 sim.paused = true;
@@ -237,6 +253,7 @@ function camAt(sl, time){
 
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
+const _o = new THREE.Vector3();
 function frame(dtOverride){
   const dt = dtOverride ?? Math.min(clock.getDelta(), 0.05);
   S.clock += dt; uTime.value = S.clock; t += dt;
@@ -252,6 +269,20 @@ function frame(dtOverride){
     if (u.isDrone){ for (const r of u.mesh.userData.rotors) r.rotation.y += dt * 40; u.tether.visible = false; u.mesh.position.y = u.pos.y + Math.sin(S.clock * 2 + u.home.z) * 0.15; }
     u.ring.position.set(u.pos.x, 0.12, u.pos.z); u.ring.visible = !u.isDrone && !u.hiddenBySlide;
     u.ring.material.color.setHex(LVL_COLORS[u.level]); u.ring.material.opacity = u.level >= 3 ? 0.55 + 0.4 * Math.sin(S.clock * 8) : 0.45;
+  }
+  for (const u of units){
+    if (!u.spray) continue;
+    const L = u.spray;
+    if (u.sprayOn){
+      _o.set(Math.sin(u.heading) * 1.5, u.isDrone ? -1.6 : 3.2, Math.cos(u.heading) * 1.5).add(u.pos);
+      emit(L, 110, dt, (i, j) => {
+        const T = 1.0 + rand() * 0.35; L.life[i] = T;
+        L.pos[j] = _o.x; L.pos[j + 1] = _o.y; L.pos[j + 2] = _o.z;
+        const tx = u.sprayTo.x + (rand() - 0.5) * 2.5, ty = u.sprayTo.y, tz = u.sprayTo.z + (rand() - 0.5) * 2.5;
+        L.vel[j] = (tx - _o.x) / T; L.vel[j + 1] = (ty - _o.y) / T + 4.9 * T; L.vel[j + 2] = (tz - _o.z) / T; L.size[i] = 0.45 + rand() * 0.5;
+      });
+    }
+    stepLayer(L, dt, (i, a, j, P_, V_) => { V_[j + 1] -= 9.8 * dt; P_[j] += V_[j] * dt; P_[j + 1] = Math.max(0.1, P_[j + 1] + V_[j + 1] * dt); P_[j + 2] += V_[j + 2] * dt; });
   }
   updateInterior(dt, S.clock, null);
   updateCrews(dt); updateMuster(dt, S.clock, 17); updateFx(dt, S.clock); animateHumans(dt, S.clock);

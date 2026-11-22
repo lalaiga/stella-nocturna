@@ -10,6 +10,8 @@ import { uiTick, uiFast, renderAll, UI } from './ui.js';
 import { updateSound } from './sound.js';
 import { updateFx } from './fx.js';
 import './fdrone.js';
+import { recorderTick } from './recorder.js';
+import { updateScenario } from './scenario.js';
 import { animateHumans, updateCrews, updateMuster } from './human.js';
 
 /* character loader: runs until fonts are ready and the first frames are on screen */
@@ -96,7 +98,7 @@ function frame(){
   updatePlanner(dt);
   { const g = overlayMat.uniforms.uGrid; g.value += ((S.gridTarget || 0) - g.value) * Math.min(1, dt * 5);
     const show = g.value > 0.5; if (show !== S.gridShown){ S.gridShown = show; gridLabels.forEach(l => l.visible = show); } }
-  updateCrews(dt); updateMuster(dt, S.clock); updateFx(dt, S.clock); animateHumans(dt, S.clock);
+  updateCrews(dt); updateMuster(dt, S.clock); updateFx(dt, S.clock); animateHumans(dt, S.clock); updateScenario(dt);
   updateSound(Math.min(1, fires.reduce((a, f) => a + f.Ieff, 0)), sim.windSpeed, dt, S.clock);
   updateLive(S.clock);
   updateInterior(dt, S.clock, previewOverride());
@@ -122,6 +124,7 @@ function frame(){
   } else if (P.open) uiFast();
   controls.update();
   composer.render();
+  recorderTick(dt);
   labelRenderer.render(scene, camera);
   requestAnimationFrame(frame);
 }

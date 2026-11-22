@@ -12,7 +12,7 @@ Run (from WSL, repo root):  python -m uvicorn server.app:app --host 0.0.0.0 --po
 from __future__ import annotations
 import io, json, os, pathlib, sys, tempfile, time, wave, logging
 import numpy as np
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.responses import Response, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -28,6 +28,18 @@ CACHE = pathlib.Path.home() / "a3tn-data" / "models"
 CACHE.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="A3TN Command")
+
+# ---------------------------------------------------------------- video upload (scenario recorder)
+@app.post("/api/save_video")
+async def save_video(request: Request, name: str, part: int = 0):
+    import re as _re
+    if not _re.fullmatch(r"scenario(_nosubs)?\.(webm|srt)", name):
+        raise HTTPException(400, "bad name")
+    out = ROOT / "video"; out.mkdir(exist_ok=True)
+    data = await request.body()
+    with open(out / name, "wb" if part == 0 else "ab") as fh:
+        fh.write(data)
+    return {"ok": True, "bytes": (out / name).stat().st_size}
 _lazy: dict = {}
 
 
