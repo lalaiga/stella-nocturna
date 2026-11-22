@@ -207,12 +207,6 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;paddin
 .nav a{color:var(--mute);text-decoration:none} .nav a:before{content:"[ ";color:var(--dim)} .nav a:after{content:" ]";color:var(--dim)}
 .nav a.on{color:var(--hot)} .nav a:hover{color:var(--ink)}
 
-/* scenario toggle */
-.scen{margin-top:14px;display:inline-flex;align-items:stretch;border:1px solid var(--line2, rgba(216,220,226,.26))}
-.scen span{padding:6px 10px;color:var(--dim);border-right:1px solid rgba(20,24,30,.16)}
-.scen a{padding:6px 12px;color:var(--mute);text-decoration:none}
-.scen a.on{background:var(--ink);color:var(--bg)}
-.scen a:not(.on):hover{color:var(--ink)}
 /* live safety precautions */
 .prec{display:flex;flex-direction:column;gap:3px}
 .prec div{display:grid;grid-template-columns:14px 1fr auto;gap:6px;align-items:baseline;color:var(--mute)}
