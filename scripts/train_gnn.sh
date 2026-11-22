@@ -2,4 +2,5 @@
 set -euo pipefail
 . "$HOME/venvs/a3tn/bin/activate"
 cd "$(dirname "$0")/.."
-python ml/train_gnn.py 2>&1 | tee ml/models/gnn_train.log
+mkdir -p ai/smoke_gnn/models
+python ai/smoke_gnn/train_gnn.py 2>&1 | tee ai/smoke_gnn/models/gnn_train.log

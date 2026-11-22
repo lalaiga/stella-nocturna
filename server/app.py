@@ -19,11 +19,12 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT / "ml"))
+sys.path.insert(0, str(ROOT / "ai" / "smoke_gnn"))
 load_dotenv(ROOT / ".env")
 log = logging.getLogger("a3tn")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
-MODELS = ROOT / "ml" / "models"
+YOLO_DIR = ROOT / "ai" / "detection" / "models"      # trained fire / smoke detector
+GNN_DIR = ROOT / "ai" / "smoke_gnn" / "models"         # trained smoke-spread graph network
 CACHE = pathlib.Path.home() / "a3tn-data" / "models"
 CACHE.mkdir(parents=True, exist_ok=True)
 
@@ -65,7 +66,7 @@ def cuda_ok() -> bool:
 def health():
     return {
         "llm": bool(os.getenv("GEMINI_API_KEY")), "llm_model": _lazy.get("llm_model"),
-        "yolo": (MODELS / "fire_yolo11n.pt").exists(), "gnn": (MODELS / "gnn_smoke.pt").exists(),
+        "yolo": (YOLO_DIR / "fire_yolo11n.pt").exists(), "gnn": (GNN_DIR / "gnn_smoke.pt").exists(),
         "cuda": cuda_ok(),
     }
 
@@ -244,7 +245,7 @@ def assist(body: AssistIn):
 def yolo():
     if "yolo" not in _lazy:
         from ultralytics import YOLO
-        p = MODELS / "fire_yolo11n.pt"
+        p = YOLO_DIR / "fire_yolo11n.pt"
         if not p.exists():
             raise HTTPException(503, "YOLO model not trained yet")
         _lazy["yolo"] = YOLO(str(p))
@@ -268,7 +269,7 @@ def gnn():
     if "gnn" not in _lazy:
         import torch
         from gnn import SmokeGNN
-        ck = torch.load(MODELS / "gnn_smoke.pt", map_location="cpu")
+        ck = torch.load(GNN_DIR / "gnn_smoke.pt", map_location="cpu")
         m = SmokeGNN(ck["hidden"], ck["layers"]); m.load_state_dict(ck["state_dict"]); m.eval()
         _lazy["gnn"] = m
     return _lazy["gnn"]

@@ -1,6 +1,6 @@
 """Train the smoke-spread GNN on zone-model trajectories over random floor plans.
 
-    python ml/train_gnn.py            # writes ml/models/gnn_smoke.pt and gnn_metrics.json
+    python ai/smoke_gnn/train_gnn.py     # writes ai/smoke_gnn/models/gnn_smoke.pt and gnn_metrics.json
 """
 from __future__ import annotations
 import json, time, pathlib, sys

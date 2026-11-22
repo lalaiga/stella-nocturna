@@ -20,7 +20,7 @@ __pycache__/
 # Tool / training artifacts
 .ignore
 /yolo11n.pt
-ml/models/yolo_train.log
+ai/detection/models/yolo_train.log
 /runs/
 
 # Recorded scenario video (large)

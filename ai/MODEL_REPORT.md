@@ -17,7 +17,7 @@ A3TN Command helps Protection Civile commanders keep crews safe at industrial fi
 
 **Dataset.** D-Fire (de Venâncio et al., 2022): 21,527 images with YOLO labels, two classes (0 smoke, 1 fire), including fire-only, smoke-only, both, and hard negatives (no fire, fire-like scenes). We use the published train / test split (test = validation here). Augmentation: Ultralytics defaults (mosaic, HSV, flips, scale).
 
-**Training.** 30 epochs, 640 px, batch 16, cosine LR, early-stopping patience 15, on an RTX 5050 laptop GPU (~9 min per epoch). Curves, confusion matrix and sample predictions are in `ml/models/yolo_*.png|jpg`; weights in `fire_yolo11n.pt` and `fire_yolo11n.onnx`.
+**Training.** 30 epochs, 640 px, batch 16, cosine LR, early-stopping patience 15, on an RTX 5050 laptop GPU (~9 min per epoch). Curves, confusion matrix and sample predictions are in `ai/detection/models/`; weights in `fire_yolo11n.pt` and `fire_yolo11n.onnx`.
 
 **Results** (4,306-image validation split, never used for training):
 

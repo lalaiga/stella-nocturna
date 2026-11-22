@@ -27,7 +27,7 @@ Built for the Tunisian Aeroday aero-entrepreneur challenge (in partnership with 
 | **Gemini (Google AI Studio)** | Understands orders, answers questions, returns structured actions | API (`/api/assist`) |
 | **Piper** | Text to speech | Local CPU (`/api/tts`) |
 
-Training code is in `ml/`; trained weights and metrics land in `ml/models/`.
+All AI code, trained weights and metrics are in [`ai/`](ai/README.md) (see also the [model report](ai/MODEL_REPORT.md)).
 
 ## Run it
 
@@ -44,8 +44,21 @@ Without the backend, `web/` still runs as a static site (`python -m http.server 
 Train the models:
 
 ```bash
-bash scripts/get_dfire.sh && python ml/prep_dfire.py && python ml/train_yolo.py
-python ml/train_gnn.py
+bash scripts/get_dfire.sh && bash scripts/train_yolo.sh 30
+bash scripts/train_gnn.sh
+```
+
+## Demo scenario
+
+Click **Run full scenario** in the left column for a hands-off run of the whole response: recon and foam drones, the safety lock, foam attack, indoor scan, entry plans and rescue, narrated by Visor. `/deck.html` is the 3D pitch deck.
+
+## Repository layout
+
+```
+web/       3D dashboard (three.js), pitch deck, scripted scenario, recorder
+server/    FastAPI backend: voice (STT/TTS), assistant, detection and forecast endpoints
+ai/        trained models and training code (detection/, smoke_gnn/), model report
+scripts/   setup, data download, training and serve scripts (dev/ has one-off helpers)
 ```
 
 ## Controls

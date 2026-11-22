@@ -37,7 +37,7 @@ print("done", counts)
 
 # Drone camera replay for the web app: held-out validation images containing fire (never seen in training)
 import json, random, shutil
-feed = pathlib.Path(__file__).resolve().parent.parent / "web" / "assets" / "feed"
+feed = pathlib.Path(__file__).resolve().parents[2] / "web" / "assets" / "feed"
 feed.mkdir(parents=True, exist_ok=True)
 cands = [p for p in (DST / "labels" / "val").glob("*.txt") if any(l.startswith("1 ") for l in p.read_text().splitlines())]
 random.Random(3).shuffle(cands)
