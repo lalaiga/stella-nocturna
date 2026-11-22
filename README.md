@@ -14,7 +14,7 @@ Built for the Tunisian Aeroday aero-entrepreneur challenge (in partnership with 
 | **Hazard-aware routing** | A* over a 4 m grid that avoids red cells and re-plans as the fire moves. |
 | **Building interiors** | Zoom inside W-1 and the admin block. A caged indoor drone (D3) scans room by room; casualties appear only once its thermal camera finds them. |
 | **Entry planner** | For each door: route to casualties, smoke/heat forecast, two-firefighter walk-through (smoke slows them, carrying slows them, air consumption, door forcing). GO / CAUTION / NO-GO. Scrub the timeline back and forth to watch the crew move through the forecast. |
-| **Forest wildfire command** (`/forest.html`) | 1.3 km terrain with fuels, lake and village; cell-based spread driven by fuel, wind, slope, moisture and ember spotting. Dispatch hand crews, engines, bulldozers (firebreaks), Canadair water bombers and helicopters. A faster-than-real-time forecast gives containment and extinction times, final burned area, time until the village is hit, and what one more aircraft would change. |
+| **Forest wildfire command** (`/forest.html`) | 1.3 km terrain with fuels, lake and village; cell-based spread driven by fuel, wind, slope, moisture and ember spotting. Dispatch hand crews, engines, bulldozers (firebreaks), firefighting drones (water/foam), helicopters and recon drones. A faster-than-real-time forecast gives containment and extinction times, final burned area, time until the village is hit, and what one more aircraft would change. |
 | **Voice (hands-free)** | Hold the mic (or **V**), speak an order. Local Whisper → Gemini → actions → local Piper voice reply. Visor also speaks critical alerts. |
 
 ## AI components

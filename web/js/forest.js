@@ -1,6 +1,6 @@
 // A3TN Forest — wildfire command.
 // Cellular wildfire spread (10 m cells) driven by fuel, wind, slope and fuel moisture, with ember spotting;
-// dispatchable crews, engines, bulldozers, Canadair water bombers and helicopters; a faster-than-real-time
+// dispatchable crews, engines, bulldozers, firefighting drones and helicopters; a faster-than-real-time
 // forecast of containment / extinction under the current resources; and a leader dashboard.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -9,7 +9,6 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { makeTankerMesh, animateTanker } from './tanker_model.js';
 
 const $ = id => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -172,7 +171,8 @@ const SPEC = {
   engine: { name:'Engine',       count:3, speed:{ road:13, off:3 },  radius:40, rate:1 / 14, limit:2500, line:false, icon:'engine', noForest:true },
   dozer:  { name:'Bulldozer',    count:2, speed:{ road:5, off:1.0 }, radius:0,  rate:0,      limit:0,    icon:'dozer' },
   // pattern = circuit time per leg (approach, turn, climb-out): a CL-415 cycle near a lake is ~5–6 min
-  bomber: { name:'Canadair CL-415', count:2, air:true, speed:75, scoop:14, pattern:130, cap:6000, icon:'bomber' },
+  // heavy-lift firefighting drone: fills at the lake, drops a short foam/water line on the fire edge; short cycles, small loads
+  fdrone: { name:'Firefighting drone', count:4, air:true, speed:22, scoop:8, pattern:1, cap:300, icon:'fdrone' },
   heli:   { name:'Helicopter',   count:2, air:true, speed:45, scoop:35, pattern:45, cap:1200, icon:'heli' },
   drone:  { name:'Recon drone',  count:2, air:true, recon:true, speed:16, icon:'drone' },
 };
@@ -422,7 +422,17 @@ function unitMesh(type){
   if (type === 'engine'){ add(new THREE.BoxGeometry(3, 3, 8), M_(0xb3231c), 0, 2.2, 0); add(new THREE.BoxGeometry(2.8, 0.6, 2), M_(0xeeeeee), 0, 3.9, -1); }
   else if (type === 'crew'){ add(new THREE.BoxGeometry(2.6, 2.4, 5), M_(0xd9a521), 0, 1.8, 0); for (let q = 0; q < 4; q++) add(new THREE.CapsuleGeometry(0.35, 1.1, 3, 6), M_(0xd6c040), -2 + q * 1.3, 1, 4.5); }
   else if (type === 'dozer'){ add(new THREE.BoxGeometry(3.4, 2.6, 5), M_(0xe0b020), 0, 1.9, 0); add(new THREE.BoxGeometry(4.6, 1.6, 0.5), M_(0x555555, 0.4, 0.8), 0, 1.0, 3.2); add(new THREE.BoxGeometry(3.8, 0.9, 5.4), M_(0x222222), 0, 0.5, 0); }
-  else if (type === 'bomber'){ const t = makeTankerMesh(THREE, 2.2); g.add(t); g.userData.tanker = t;
+  else if (type === 'fdrone'){
+    const m = M_(0x2a2f38, 0.4, 0.5), rotors = [];
+    add(new THREE.BoxGeometry(1.8, 0.5, 1.8), m, 0, 0, 0);
+    add(new THREE.CylinderGeometry(0.8, 0.8, 0.9, 14), M_(0xe0501a, 0.5, 0.2), 0, -0.75, 0);         // water / foam tank
+    add(new THREE.CylinderGeometry(0.1, 0.16, 0.6, 8), M_(0x333333, 0.4, 0.7), 0, -1.4, 0);          // drop nozzle
+    for (const [x, z] of [[1.7, 1.7], [-1.7, 1.7], [1.7, -1.7], [-1.7, -1.7]]){
+      add(new THREE.BoxGeometry(0.22, 0.15, 2.4), m, x / 2, 0, z / 2, Math.atan2(x, z));
+      rotors.push(add(new THREE.CylinderGeometry(1.0, 1.0, 0.05, 16), new THREE.MeshBasicMaterial({ color:0x55606e, transparent:true, opacity:0.5 }), x, 0.35, z));
+    }
+    add(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshBasicMaterial({ color:0xe0501a }), 0, 0.1, 0.95);
+    g.userData.rotors = rotors; g.scale.setScalar(3.4);
   } else if (type === 'drone'){
     const m = M_(0x2a2f38, 0.4, 0.5);
     add(new THREE.BoxGeometry(1.6, 0.5, 1.6), m, 0, 0, 0);
@@ -471,8 +481,9 @@ function dispatch(type, tx, tz, tx2, tz2){
   if (pools[type] <= 0) return say(`No ${SPEC[type].name.toLowerCase()} available.`);
   pools[type]--;
   const sp = SPEC[type];
-  const u = { id:`${{ crew:'C', engine:'E', dozer:'B', bomber:'CL', heli:'H', drone:'D' }[type]}${unitSeq++}`, type, x:0, z:0, y:0, tx, tz, tx2, tz2, state:'transit', heading:0, water:0, drops:0, acc:0, did:0 };
+  const u = { id:`${{ crew:'C', engine:'E', dozer:'B', fdrone:'FD', heli:'H', drone:'D' }[type]}${unitSeq++}`, type, x:0, z:0, y:0, tx, tz, tx2, tz2, state:'transit', heading:0, water:0, drops:0, acc:0, did:0 };
   if (sp.recon){ u.x = cx(STATION.i); u.z = cx(STATION.j); u.y = hAt(u.x, u.z) + 2; u.state = 'toFire'; u.orbitA = 0; }
+  else if (type === 'fdrone'){ u.x = cx(STATION.i); u.z = cx(STATION.j); u.y = hAt(u.x, u.z) + 2; u.state = 'toLake'; const k = headNear(W, tx, tz); if (k >= 0){ u.tx = cx(k % N); u.tz = cx((k / N) | 0); } }
   else if (sp.air){ u.x = AIRBASE.x; u.z = AIRBASE.z; u.y = 160; u.state = 'toLake'; const k = headNear(W, tx, tz); if (k >= 0){ u.tx = cx(k % N); u.tz = cx((k / N) | 0); } }
   else { u.x = cx(STATION.i); u.z = cx(STATION.j); u.path = routeGround(u, tx, tz) || [{ x:tx, z:tz }]; }
   u.mesh = unitMesh(type); scene.add(u.mesh);
@@ -546,6 +557,7 @@ function updateGround(u, dt){
 }
 function maxNear(u){ let m = 0; const k = cellAt(u.x, u.z); if (k < 0) return 0; const ci = k % N, cj = (k / N) | 0;
   for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++){ const i = ci + di, j = cj + dj; if (i < 0 || j < 0 || i >= N || j >= N) continue; const n = ix(i, j); if (W.state[n] === 1) m = Math.max(m, W.inten[n]); } return m; }
+const DROP = { fdrone:{ len:30, wid:14, secs:1200, limit:3500, n:130, spread:30 }, heli:{ len:30, wid:25, secs:900, limit:3000, n:160, spread:20 } };
 const LAKEPT = () => ({ x:cx(LAKE.i), z:cx(LAKE.j) });
 /* crew sensors in the wildfire: radiant heat from every burning cell (point source, chi_r 0.3, Q = I x cell width),
    air temperature from nearby flames, CO from the downwind smoke plumes, visibility from smoke density */
@@ -601,16 +613,16 @@ function updateAir(u, dt){
     const dist = Math.hypot(u.tx - u.x, u.tz - u.z);
     u.eta = dist / sp.speed;
     if (!u.warned && u.eta < 20){ u.warned = true; clearFootprint(u); }
-    if (flyTo(u, u.tx, u.tz, u.type === 'bomber' ? 35 : 25, dt)){
+    if (flyTo(u, u.tx, u.tz, u.type === 'fdrone' ? hAt(u.tx, u.tz) + 24 : 25, dt)){
       const hx = Math.sin(u.heading), hz = Math.cos(u.heading);
-      if (u.type === 'bomber') dropStrip(W, u.tx, u.tz, hx, hz, 120, 25, 1800, 5000);
-      else dropStrip(W, u.tx, u.tz, hx, hz, 30, 25, 900, 3000);
-      spawnDrop(u); spawnSteam(u.tx, u.tz, hx, hz, u.type === 'bomber' ? 120 : 30); u.water = 0; u.drops++; u.state = 'pattern'; u.t0 = 0; u.px = u.x; u.pz = u.z; u.warned = false;
+      { const d = DROP[u.type] || DROP.heli; dropStrip(W, u.tx, u.tz, hx, hz, d.len, d.wid, d.secs, d.limit); }
+      spawnDrop(u); spawnSteam(u.tx, u.tz, hx, hz, 30); u.water = 0; u.drops++; u.state = 'pattern'; u.t0 = 0; u.px = u.x; u.pz = u.z; u.warned = false;
       if (!W.burning.length) alert(1, '<b>Visor quiet</b>Fire suppressed, sector cooling', 25);
       // next drop: the hottest part of the active edge near the assigned target
       const k = headNear(W, u.tx, u.tz); if (k >= 0){ u.tx = cx(k % N); u.tz = cx((k / N) | 0); }
     }
-  } else if (u.state === 'return'){ if (flyTo(u, AIRBASE.x, AIRBASE.z, 160, dt)){ removeUnit(u); pools[u.type]++; log(`${u.id} landed at base`); } }
+  } else if (u.state === 'return'){ const home = u.type === 'fdrone' ? { x:cx(STATION.i), z:cx(STATION.j), y:hAt(cx(STATION.i), cx(STATION.j)) + 2 } : { x:AIRBASE.x, z:AIRBASE.z, y:160 };
+    if (flyTo(u, home.x, home.z, home.y, dt)){ removeUnit(u); pools[u.type]++; log(`${u.id} landed`); } }
 }
 /* firefighters on foot: articulated figures that leave the vehicle at the fire */
 const FFG = { torso:new THREE.BoxGeometry(0.5, 0.7, 0.3), head:new THREE.SphereGeometry(0.15, 10, 8), helmet:new THREE.SphereGeometry(0.18, 10, 6, 0, 6.29, 0, 1.6),
@@ -652,7 +664,7 @@ function updateCrewFigures(u, dt, time){
   });
 }
 function clearFootprint(u){
-  const hx = Math.sin(u.heading), hz = Math.cos(u.heading), L = u.type === 'bomber' ? 120 : 30, Wd = 25, M = 25;
+  const hx = Math.sin(u.heading), hz = Math.cos(u.heading), L = (DROP[u.type] || DROP.heli).len, Wd = (DROP[u.type] || DROP.heli).wid, M = 20;
   const moved = [];
   for (const g of units){
     if (SPEC[g.type].air || g.state === 'return') continue;
@@ -692,8 +704,8 @@ const dGeo = new THREE.BufferGeometry(); dGeo.setAttribute('position', new THREE
 const drops = new THREE.Points(dGeo, new THREE.PointsMaterial({ color:0xcfe3f5, size:2.2, transparent:true, opacity:0.55, depthWrite:false }));
 drops.frustumCulled = false; scene.add(drops); let dHead = 0;
 function spawnDrop(u){
-  const n = u.type === 'bomber' ? 500 : 160, hx = Math.sin(u.heading), hz = Math.cos(u.heading);
-  for (let q = 0; q < n; q++){ const i = dHead; dHead = (dHead + 1) % MAXD; const s = (rand() - 0.5) * (u.type === 'bomber' ? 120 : 20);
+  const D = DROP[u.type] || DROP.heli, n = D.n, hx = Math.sin(u.heading), hz = Math.cos(u.heading);
+  for (let q = 0; q < n; q++){ const i = dHead; dHead = (dHead + 1) % MAXD; const s = (rand() - 0.5) * D.spread;
     dPos[i * 3] = u.tx + hx * s + (rand() - 0.5) * 8; dPos[i * 3 + 1] = hAt(u.tx, u.tz) + 30 + rand() * 10; dPos[i * 3 + 2] = u.tz + hz * s + (rand() - 0.5) * 8;
     dVel[i * 3] = hx * 8; dVel[i * 3 + 1] = -6 - rand() * 6; dVel[i * 3 + 2] = hz * 8; dLife[i] = 3 + rand() * 2; }
 }
@@ -720,7 +732,7 @@ function forecastRun(extra, horizon, dt){
   const crews = units.filter(u => !SPEC[u.type].air && u.type !== 'dozer' && u.state !== 'return').map(u => ({ type:u.type, x:u.state === 'working' ? u.x : u.tx, z:u.state === 'working' ? u.z : u.tz, acc:0, arrive:u.state === 'working' ? 0 : (u.eta || 300) }));
   const lake = LAKEPT();
   const air = units.filter(u => SPEC[u.type].air && !SPEC[u.type].recon && u.state !== 'return').map(u => ({ type:u.type, tx:u.tx, tz:u.tz, next:0 }));
-  if (extra){ const p = sources[0] || { x:0, z:0 }; for (const e of extra) air.push({ type:e, tx:p.x, tz:p.z, next:Math.hypot(lake.x - AIRBASE.x, lake.z - AIRBASE.z) / SPEC[e].speed }); }
+  if (extra){ const p = sources[0] || { x:0, z:0 }; for (const e of extra) air.push({ type:e, tx:p.x, tz:p.z, next:e === 'fdrone' ? Math.hypot(lake.x - cx(STATION.i), lake.z - cx(STATION.j)) / SPEC[e].speed + SPEC[e].scoop : Math.hypot(lake.x - AIRBASE.x, lake.z - AIRBASE.z) / SPEC[e].speed }); }
   for (const a of air){ const sp = SPEC[a.type]; a.cycle = 2 * Math.hypot(a.tx - lake.x, a.tz - lake.z) / sp.speed + sp.scoop + 2 * sp.pattern; }
   const series = []; let contained = null, out = null, village = null;
   const vil = []; for (let j = VILLAGE.j0; j <= VILLAGE.j1; j++) for (let i = VILLAGE.i0; i <= VILLAGE.i1; i++) vil.push(ix(i, j));
@@ -732,7 +744,7 @@ function forecastRun(extra, horizon, dt){
       groundWork(w, c, dt); }
     for (const a of air){ if (t >= a.next){ const k = headNear(w, a.tx, a.tz); if (k >= 0){ a.tx = cx(k % N); a.tz = cx((k / N) | 0); }
       const hx = a.tx - lake.x, hz = a.tz - lake.z, L = Math.hypot(hx, hz) || 1;
-      if (k >= 0) dropStrip(w, a.tx, a.tz, hx / L, hz / L, a.type === 'bomber' ? 120 : 30, 25, a.type === 'bomber' ? 1800 : 900, a.type === 'bomber' ? 5000 : 3000);
+      if (k >= 0){ const d = DROP[a.type] || DROP.heli; dropStrip(w, a.tx, a.tz, hx / L, hz / L, d.len, d.wid, d.secs, d.limit); }
       a.next = t + a.cycle; } }
     if (village === null && vil.some(k => w.state[k] === 1)) village = t;
     if (t % 630 < dt){
@@ -748,7 +760,6 @@ function forecastRun(extra, horizon, dt){
 /* ================================================================
    UI
    ================================================================ */
-let autoTanker = false;
 let paused = false, speed = 60, tool = null, selUnit = null, vis = { lvl:0, html:'<b>Visor quiet</b>no active fire', until:0 }, nowT = 0, evac = { on:false, done:0 };
 const history = [];
 function log(text, cls = ''){ const L = $('ulog'); history.push({ t:W.t, text, cls }); }
@@ -801,7 +812,7 @@ function renderForecast(){
     if (FC.village !== null) h += `<div class="kv"><span class="k">Reaches the village</span><span class="v bad">in ${fmtT(FC.village)}</span></div>`;
     if (FCplus){
       const gain = (FC.contained ?? 86400) - (FCplus.contained ?? 86400);
-      h += `<div class="kv"><span class="k">With +1 Canadair</span><span class="v ${gain > 0 ? 'ok' : ''}">${FCplus.contained === null ? 'still > 24 h' : `contained in ${fmtT(FCplus.contained)}`}${gain > 300 ? ` · −${fmtT(gain)}` : ''}</span></div>`;
+      h += `<div class="kv"><span class="k">With +2 firefighting drones</span><span class="v ${gain > 0 ? 'ok' : ''}">${FCplus.contained === null ? 'still > 24 h' : `contained in ${fmtT(FCplus.contained)}`}${gain > 300 ? ` · −${fmtT(gain)}` : ''}</span></div>`;
     }
   }
   $('forecast').innerHTML = h;
@@ -812,7 +823,7 @@ function runForecast(){
   setTimeout(() => {
     const t0 = performance.now();
     FC = forecast();
-    FCplus = forecast(['bomber']);
+    FCplus = forecast(['fdrone', 'fdrone']);
     $('chartMeta').textContent = `forecast ${Math.round(performance.now() - t0)} ms`;
     fcBusy = false;
     if (FC.village !== null && FC.village < 2 * 3600 && !evac.on) alert(2, `<b>Village threat</b>fire reaches the village in ${fmtT(FC.village)} · order evacuation`, 20);
@@ -942,13 +953,11 @@ document.addEventListener('pointerdown', e => {
   else if (a === 'retarget'){ tool = 'retarget'; setHint(`${selUnit.id}: click the new target · Esc cancels`); }
   else if (a === 'evacuate'){ if (!evac.on){ evac.on = true; log('Village evacuation ordered', 'l1'); say('Village evacuation ordered. Three hundred forty residents.'); } }
   else if (a === 'reset') location.reload();
-  else if (a === 'tanker'){ const s0 = sources[0]; if (s0) dispatch('bomber', s0.x, s0.z); else say('No active fire.'); }
   else if (a === 'visor'){}
   document.querySelectorAll('#speedSeg button').forEach(b => b.classList.toggle('on', +b.dataset.v === speed));
   $('playLbl').textContent = paused ? 'play' : 'pause';
   renderUnits(true);
 });
-$('autoTanker') && $('autoTanker').addEventListener('change', e => { autoTanker = e.target.checked; });
 const wxBind = (id, key, fmt) => { const el = $(id); const f = () => { env[key] = +el.value; $(id + 'V').textContent = fmt(env[key]); flameMat.uniforms.uWind.value.set(windVec().x * env.windSpeed / 6, windVec().z * env.windSpeed / 6); }; el.addEventListener('input', () => { f(); FC = null; runForecast(); }); f(); };
 wxBind('wDir', 'windFrom', v => compass(v)); wxBind('wSpd', 'windSpeed', v => `${v} m/s`); wxBind('moist', 'moist', v => `${v} %`);
 
@@ -993,9 +1002,6 @@ function frame(){
     if (SPEC[u.type].air) u.mesh.position.y = Math.max(u.y, hAt(u.x, u.z) + 3);
     u.mesh.rotation.y = u.heading;
     if (u.mesh.userData.rotor) u.mesh.userData.rotor.rotation.y += dt * 30;
-    if (u.mesh.userData.tanker){ let dh = u.heading - (u.prevH ?? u.heading); dh = Math.atan2(Math.sin(dh), Math.cos(dh)); u.prevH = u.heading;
-      u.roll = (u.roll || 0) + (Math.max(-0.7, Math.min(0.7, -dh * 25)) - (u.roll || 0)) * Math.min(1, dt * 3);
-      animateTanker(u.mesh.userData.tanker, nowT, { roll:u.roll, doorsOpen:u.state === 'toFire' && (u.eta || 99) < 2 }); }
     if (u.mesh.userData.rotors) for (const r of u.mesh.userData.rotors) r.rotation.y += dt * 40;
     updateCrewFigures(u, dt * Math.min(speed, 20), nowT);
     u.label.position.set(u.x, u.mesh.position.y + (SPEC[u.type].air ? 14 : 9), u.z);
@@ -1007,9 +1013,6 @@ function frame(){
   uiAcc += dt; fcAcc += dt;
   if (uiAcc > 0.3){ uiAcc = 0; $('clock').textContent = clock(W.t); renderFire(); renderForecast(); renderUnits(); renderPools(); renderVisor(); renderPrecautions(); drawChart(); }
   if (fcAcc > 6 && !paused){ fcAcc = 0; runForecast(); }
-  // auto-dispatch a water bomber when the fire becomes intense and none is flying
-  if (autoTanker && !paused && pools.bomber > 0 && !units.some(u => u.type === 'bomber') && W.burning.some(k => W.inten[k] > 2500)){
-    const s0 = sources[0]; if (s0){ dispatch('bomber', s0.x, s0.z); alert(1, '<b>Auto-dispatch</b>water bomber launched: intensity above 2.5 MW/m', 10); } }
   controls.update(); composer.render(); labelR.render(scene, camera);
   requestAnimationFrame(frame);
 }

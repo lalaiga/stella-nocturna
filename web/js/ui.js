@@ -8,7 +8,6 @@ import { BUILDINGS, buildingAt, roomAt, enterBuilding, exitBuilding, startScan, 
 import { P, makePlans, closePlans, selectPlan, commitPlan, setTau } from './planner.js';
 import { V, startTalk, stopTalk, handle, say } from './voice.js';
 import { toggleSound } from './sound.js';
-import { dispatchTanker, tankerStatus, T as TK } from './tanker.js';
 
 /* text that decodes into place, like a radio signal locking on */
 const GLYPHS = '#%&*+=-/\<>[]{}_01';
@@ -373,7 +372,6 @@ function act(el){
     case 'plans-close': closePlans(); break;
     case 'commit': commitPlan(); break;
     case 'tl-play': { const p = P.plans[P.sel]; if (p){ if (P.tau >= p.end) P.tau = 0; P.playing = !P.playing; } break; }
-    case 'tanker': if (!dispatchTanker('manual')) say(TK.phase === 'idle' ? 'No active fire for the air tanker.' : 'Air tanker already on a run.'); break;
     case 'log': $('log').hidden = !$('log').hidden; $('logState').textContent = $('log').hidden ? '[+]' : '[−]'; break;
     case 'sound': $('soundBtn').textContent = `sound: ${toggleSound() ? 'on' : 'off'}`; break;
     case 'type': $('typeForm').hidden = !$('typeForm').hidden; if (!$('typeForm').hidden) $('typeInput').focus(); break;
@@ -414,18 +412,6 @@ onEv('view', () => renderAll(true));
 onEv('scan-done', ({ building }) => { if (!P.open) select({ type:'building', id:building }); });
 
 
-/* ---------------- air tanker telemetry ---------------- */
-function renderTanker(){
-  const el = $('tanker'); if (!el) return;
-  const t = tankerStatus(), on = t.phase !== 'idle';
-  el.innerHTML = `<div class="kv"><span class="k">Status</span><span class="v ${t.phase === 'drop' ? 'bad' : on ? 'warn' : ''}">${t.label}${t.cooldown && !on ? ` · ${Math.ceil(t.cooldown / 60)} min` : ''}</span></div>
-    <div class="kv"><span class="k">Altitude</span><span class="v">${on ? Math.round(t.alt) + ' m' : '—'}</span></div>
-    <div class="kv"><span class="k">Airspeed</span><span class="v">${on ? Math.round(t.speedKmh) + ' km/h' : '—'}</span></div>
-    <div class="kv"><span class="k">Water payload</span><span class="v">${Math.round(t.payload * 100)} %</span></div>
-    <div class="meter"><i style="width:${Math.round(t.payload * 100)}%;background:#2f7fd6"></i></div>
-    <div class="kv"><span class="k">ETA to drop zone</span><span class="v">${t.eta != null ? Math.ceil(t.eta) + ' s' : '—'}</span></div>`;
-}
-$('tankerAuto') && $('tankerAuto').addEventListener('change', e => { TK.auto = e.target.checked; });
 /* ---------------- live safety precautions: industrial fire ---------------- */
 function renderPrecautions(){
   const el = $('prec'); if (!el) return;
@@ -450,7 +436,7 @@ function renderPrecautions(){
 }
 
 export function renderAll(force){
-  renderTop(); renderVisor(); renderRoster(); renderSite(); renderBuildings(); renderCard(force); renderLog(); renderTimeline(); renderPrecautions(); renderTanker();
+  renderTop(); renderVisor(); renderRoster(); renderSite(); renderBuildings(); renderCard(force); renderLog(); renderTimeline(); renderPrecautions();
 }
 export function uiTick(){ renderAll(false); camTick(); }
 export function uiFast(){ renderTimeline(); }

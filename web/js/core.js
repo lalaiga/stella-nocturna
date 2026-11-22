@@ -756,6 +756,12 @@ function addUnit(o){
   u.home = { x:o.x, z:o.z };
   u.isDrone = u.kind === 'drone';
   u.mesh = u.isDrone ? droneMesh() : vehicleMesh(u.color, u.kind);
+  if (u.fighter){   // foam tank under the airframe + orange arms so it reads as a firefighting drone
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.55, 14), new THREE.MeshStandardMaterial({ color:0xe0501a, roughness:0.5 }));
+    tank.position.y = -0.5; tank.castShadow = true; u.mesh.add(tank);
+    const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 0.35, 8), new THREE.MeshStandardMaterial({ color:0x333333, metalness:0.7 }));
+    nozzle.position.y = -0.9; u.mesh.add(nozzle);
+  }
   scene.add(u.mesh);
   u.ring = new THREE.Mesh(new THREE.RingGeometry(3.6, 3.85, 48), new THREE.MeshBasicMaterial({ color:LVL_COLORS[0], transparent:true, opacity:0.5, depthWrite:false }));
   u.ring.rotation.x = -Math.PI / 2; u.ring.renderOrder = 4; scene.add(u.ring);
@@ -772,7 +778,7 @@ function addUnit(o){
   u.route = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color:0x5eead4, transparent:true, opacity:0.75 }));
   u.route.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(64 * 3), 3));
   u.route.geometry.setDrawRange(0, 0); u.route.frustumCulled = false; scene.add(u.route);
-  if (!u.isDrone) u.spray = makeLayer(240, sprayMat(), 2);
+  if (!u.isDrone || u.fighter) u.spray = makeLayer(240, sprayMat(), 2);
   units.push(u);
   return u;
 }
@@ -783,6 +789,8 @@ addUnit({ id:'R1', name:'Rescue 1', kind:'rescue', crew:2, x:-72, z:36, speed:4.
 addUnit({ id:'D1', name:'Drone D1', kind:'drone', x:-64, z:14, speed:9, cruise:30, desc:'Quadcopter · thermal camera' });
 addUnit({ id:'D2', name:'Drone D2', kind:'drone', x:-64, z:22, speed:9, cruise:16, desc:'Quadcopter · gas sniffer' });
 addUnit({ id:'D3', name:'Scout D3', kind:'drone', indoor:true, x:-64, z:30, speed:6, cruise:10, desc:'Caged indoor drone · thermal + lidar' });
+addUnit({ id:'D4', name:'Fire drone D4', kind:'drone', fighter:true, x:-64, z:38, speed:11, cruise:18, desc:'Firefighting drone · 40 L foam tank' });
+addUnit({ id:'D5', name:'Fire drone D5', kind:'drone', fighter:true, x:-64, z:46, speed:11, cruise:18, desc:'Firefighting drone · 40 L foam tank' });
 const unitById = id => units.find(u => u.id === id);
 
 /* ================================================================
@@ -795,9 +803,11 @@ const tasks = [
   { id:'t4', title:'Block drain, contain run-off',  kind:'contain', unit:'H1', auto:true },
   { id:'t5', title:'Foam attack on drum yard',      kind:'foam',    unit:'E2', fireId:'F1' },
   { id:'t6', title:'Cool W-1 east wall (exposure)', kind:'cool',    unit:'E1' },
+  { id:'t7', title:'Drone foam drop on drum yard',  kind:'dsup',    unit:'D4', fireId:'F1' },
+  { id:'t8', title:'Drone foam drop, second pass',  kind:'dsup',    unit:'D5', fireId:'F1' },
 ].map(t => Object.assign({ status:'queued', progress:0 }, t));
-let taskSeq = 7;
-const DRONE_KINDS = ['recon', 'survey', 'scan'];
+let taskSeq = 9;
+const DRONE_KINDS = ['recon', 'survey', 'scan', 'dsup'];
 const taskFire = t => fires.find(f => f.id === t.fireId) || primaryFire();
 function primaryFire(){ let best = null; for (const f of fires) if (f.active && (!best || f.Q > best.Q)) best = f; return best; }
 

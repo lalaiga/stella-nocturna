@@ -9,7 +9,7 @@ import { probe } from './voice.js';
 import { uiTick, uiFast, renderAll, UI } from './ui.js';
 import { updateSound } from './sound.js';
 import { updateFx } from './fx.js';
-import { updateTanker } from './tanker.js';
+import './fdrone.js';
 import { animateHumans, updateCrews, updateMuster } from './human.js';
 
 /* character loader: runs until fonts are ready and the first frames are on screen */
@@ -81,7 +81,7 @@ function frame(){
     if (u.spray){
       const L = u.spray;
       if (u.sprayOn){
-        tmpV.set(Math.sin(u.heading) * 1.5, 3.2, Math.cos(u.heading) * 1.5).add(u.pos);
+        tmpV.set(Math.sin(u.heading) * 1.5, u.isDrone ? -1.6 : 3.2, Math.cos(u.heading) * 1.5).add(u.pos);
         emit(L, 110, dt, (i, j) => {
           const T = 1.0 + rand() * 0.35; L.life[i] = T;
           L.pos[j] = tmpV.x; L.pos[j + 1] = tmpV.y; L.pos[j + 2] = tmpV.z;
@@ -96,7 +96,7 @@ function frame(){
   updatePlanner(dt);
   { const g = overlayMat.uniforms.uGrid; g.value += ((S.gridTarget || 0) - g.value) * Math.min(1, dt * 5);
     const show = g.value > 0.5; if (show !== S.gridShown){ S.gridShown = show; gridLabels.forEach(l => l.visible = show); } }
-  updateCrews(dt); updateMuster(dt, S.clock); updateFx(dt, S.clock); animateHumans(dt, S.clock); updateTanker(dt, S.clock);
+  updateCrews(dt); updateMuster(dt, S.clock); updateFx(dt, S.clock); animateHumans(dt, S.clock);
   updateSound(Math.min(1, fires.reduce((a, f) => a + f.Ieff, 0)), sim.windSpeed, dt, S.clock);
   updateLive(S.clock);
   updateInterior(dt, S.clock, previewOverride());
@@ -127,4 +127,4 @@ function frame(){
 }
 renderAll(true);
 requestAnimationFrame(frame);
-window.__a3tn = { sim, units, fires, P };   // debug handle
+window.__a3tn = { sim, units, fires, P, scene, camera, controls };   // debug handle

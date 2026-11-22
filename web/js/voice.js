@@ -6,7 +6,6 @@ import {
 } from './core.js';
 import { BUILDINGS, startScan, enterBuilding, exitBuilding } from './interior.js';
 import { P, makePlans, commitPlan, closePlans } from './planner.js';
-import { dispatchTanker } from './tanker.js';
 
 export const V = { state:'idle', last:null, history:[], alerts:true, backend:null };
 
@@ -121,7 +120,6 @@ export function execute(actions){
       else if (type === 'exit'){ if (P.open) closePlans(); exitBuilding(); done.push('exit'); }
       else if (type === 'wind'){ const m = String(a.value || '').toUpperCase().match(/(N|NE|E|SE|S|SW|W|NW)\b\D*(\d+(?:\.\d+)?)?/); if (m){ sim.windFrom = COMPASS.indexOf(m[1]) * 45; if (m[2]) sim.windSpeed = Math.min(12, +m[2]); updateWind(); done.push(`wind ${m[1]}`); } }
       else if (type === 'speed'){ const v = parseFloat(a.value); if ([1, 5, 20].includes(v)){ sim.speed = v; done.push(`speed ${v}x`); } }
-      else if (type === 'air_tanker'){ if (dispatchTanker('voice')) done.push('air tanker'); }
       else if (type === 'pause'){ sim.paused = true; done.push('pause'); }
       else if (type === 'resume'){ sim.paused = false; done.push('resume'); }
     } catch (e){ console.warn('action failed', a, e); }
@@ -148,7 +146,6 @@ function localParse(raw){
   else if (/(send|move|go|fly)\b/.test(s) && unit && cm) A.push({ type:'move', unit, target:cm[1].toUpperCase() + cm[2] });
   else if (/foam|attack|extinguish/.test(s)) A.push({ type:'task', unit, value:'foam' });
   else if (/cool/.test(s)) A.push({ type:'task', unit, value:'cool' });
-  else if (/tanker|water bomber|air drop|canadair/.test(s)) A.push({ type:'air_tanker' });
   else if (/pause|freeze/.test(s)) A.push({ type:'pause' });
   else if (/resume|continue|play/.test(s)) A.push({ type:'resume' });
   const reply = A.length ? 'Copy.' : unit ? `${unitById(unit.toUpperCase().replace('ENGINE', 'E').replace('DRONE', ''))?.status || 'No data'}.` : 'Say again?';
